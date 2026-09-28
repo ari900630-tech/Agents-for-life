@@ -36,7 +36,7 @@ async function runOpenRouter(prompt, webSearch) {
   const response = await client.chat.completions.create({
     model: openRouterModel,
     messages: [{ role: 'user', content: prompt }],
-    ...(webSearch ? {} : {})
+    ...(webSearch ? { extra_headers: { 'HTTP-Referer': 'https://github.com/ari900630-tech/Agents-for-life', 'X-Title': 'Agents for Life' } } : {})
   });
   return response.choices?.[0]?.message?.content || '';
 }
