@@ -3,7 +3,6 @@ package com.ari900630.agentsforlife
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
-import android.app.AlertDialog
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -65,8 +64,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         content.removeAllViews()
         content.addView(title("Agents for Life",30f))
         content.addView(subtitle("מרכז שליטה אישי עם סוכני AI",16f))
-        status=text("",16f,Color.WHITE).apply{gravity=Gravity.CENTER;setPadding(18,18,18,18);background(card,16f)}
-        content.addView(status,params(0,0,12,0))
+        status=text("",16f,Color.WHITE).apply{gravity=Gravity.CENTER;setPadding(18,18,18,18);setRoundedBackground(card,16f)}
+        content.addView(status,layoutParams(0,0,12,0))
         content.addView(section("הסוכנים שלך"))
         content.addView(cardButton("סוכני AI","10 סוגים מוכנים + יצירה חופשית"){showAgentsDialog()})
         content.addView(section("שליטה במכשיר"))
@@ -87,15 +86,15 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         content.addView(cardButton("ניהול אפליקציות","חסימה/פתיחה של אפליקציות באמצעות שירות הנגישות"){startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))})
         getLaunchableApps().forEach { info ->
             val pkg=info.activityInfo.packageName
-            val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(16,12,16,12);background(card,16f)}
+            val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(16,12,16,12);setRoundedBackground(card,16f)}
             row.addView(text(info.loadLabel(packageManager).toString(),15f,Color.WHITE),LinearLayout.LayoutParams(0,-2,1f))
             row.addView(Switch(this).apply{text="חסום";setTextColor(Color.WHITE);isChecked=isAppBlocked(pkg);setOnCheckedChangeListener{_,b->setAppBlocked(pkg,b)}})
             row.setOnClickListener { startActivity(packageManager.getLaunchIntentForPackage(pkg) ?: Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:"+pkg))) }
-            content.addView(row,params(0,0,8,0))
+            content.addView(row,layoutParams(0,0,8,0))
         }
         content.addView(section("מספרים חסומים"))
-        val input=EditText(this).apply{hint="מספר לחסימה";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);setSingleLine();background(card,14f);setPadding(18,12,18,12)}
-        content.addView(input,params(0,0,8,0))
+        val input=EditText(this).apply{hint="מספר לחסימה";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);setSingleLine();setRoundedBackground(card,14f);setPadding(18,12,18,12)}
+        content.addView(input,layoutParams(0,0,8,0))
         content.addView(cardButton("חסום מספר","הוסף לרשימת החסימה"){
             val n=input.text.toString().trim()
             if(n.isNotEmpty()){addBlockedNumber(n);input.text.clear();Toast.makeText(this,"המספר נוסף",Toast.LENGTH_SHORT).show();showHome()}
@@ -116,13 +115,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val agents=AgentStore.load(this).ifEmpty{AgentStore.seedTemplates(this);AgentStore.load(this)}
         val spinner=Spinner(this)
         spinner.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,agents.map{it.name})
-        content.addView(spinner,params(0,0,10,0))
-        val endpoint=EditText(this).apply{hint="כתובת שרת AI";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);setSingleLine();setText(prefs.getString("agent_server",""));background(card,14f);setPadding(16,12,16,12)}
-        content.addView(endpoint,params(0,0,10,0))
-        val task=EditText(this).apply{hint="כתוב כאן לסוכן...";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);minLines=5;gravity=48;background(card,14f);setPadding(16,12,16,12)}
-        content.addView(task,params(0,0,10,0))
-        val result=text("התשובה תופיע כאן.",15f,Color.WHITE).apply{setPadding(16,16,16,16);background(card,16f)}
-        content.addView(result,params(0,0,12,0))
+        content.addView(spinner,layoutParams(0,0,10,0))
+        val endpoint=EditText(this).apply{hint="כתובת שרת AI";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);setSingleLine();setText(prefs.getString("agent_server",""));setRoundedBackground(card,14f);setPadding(16,12,16,12)}
+        content.addView(endpoint,layoutParams(0,0,10,0))
+        val task=EditText(this).apply{hint="כתוב כאן לסוכן...";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);minLines=5;gravity=48;setRoundedBackground(card,14f);setPadding(16,12,16,12)}
+        content.addView(task,layoutParams(0,0,10,0))
+        val result=text("התשובה תופיע כאן.",15f,Color.WHITE).apply{setPadding(16,16,16,16);setRoundedBackground(card,16f)}
+        content.addView(result,layoutParams(0,0,12,0))
         content.addView(cardButton("שלח לסוכן","הפעל את הסוכן שבחרת"){
             val a=agents[spinner.selectedItemPosition]
             val base=endpoint.text.toString().trim()
@@ -144,11 +143,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val agents=AgentStore.load(this).ifEmpty{AgentStore.seedTemplates(this);AgentStore.load(this)}
         val spinner=Spinner(this)
         spinner.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,agents.map{it.name})
-        content.addView(spinner,params(0,0,10,0))
-        val endpoint=EditText(this).apply{hint="כתובת שרת AI";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);setSingleLine();setText(prefs.getString("agent_server",""));background(card,14f);setPadding(16,12,16,12)}
-        content.addView(endpoint,params(0,0,10,0))
-        val transcript=text("לחץ על המיקרופון והתחל לדבר.",16f,Color.WHITE).apply{setPadding(18,18,18,18);background(card,16f)}
-        content.addView(transcript,params(0,0,10,0))
+        content.addView(spinner,layoutParams(0,0,10,0))
+        val endpoint=EditText(this).apply{hint="כתובת שרת AI";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);setSingleLine();setText(prefs.getString("agent_server",""));setRoundedBackground(card,14f);setPadding(16,12,16,12)}
+        content.addView(endpoint,layoutParams(0,0,10,0))
+        val transcript=text("לחץ על המיקרופון והתחל לדבר.",16f,Color.WHITE).apply{setPadding(18,18,18,18);setRoundedBackground(card,16f)}
+        content.addView(transcript,layoutParams(0,0,10,0))
         content.addView(cardButton("התחל שיחה","דבר אל הסוכן"){
             if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO),700);return@cardButton}
             startListening(spinner,endpoint,transcript)
@@ -199,8 +198,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         content.removeAllViews()
         content.addView(title("הגדרות",27f))
         content.addView(subtitle("ניהול החיבור, הרשאות ושירותי Agents for Life.",15f))
-        val endpoint=EditText(this).apply{hint="כתובת שרת AI";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);setSingleLine();setText(prefs.getString("agent_server",""));background(card,14f);setPadding(16,12,16,12)}
-        content.addView(endpoint,params(0,0,10,0))
+        val endpoint=EditText(this).apply{hint="כתובת שרת AI";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);setSingleLine();setText(prefs.getString("agent_server",""));setRoundedBackground(card,14f);setPadding(16,12,16,12)}
+        content.addView(endpoint,layoutParams(0,0,10,0))
         content.addView(cardButton("שמור כתובת שרת","הכתובת תשמש בצ'אט ובשיחה"){prefs.edit().putString("agent_server",endpoint.text.toString().trim()).apply();Toast.makeText(this,"ההגדרה נשמרה",Toast.LENGTH_SHORT).show()})
         content.addView(cardButton("שירות נגישות","פתיחת הגדרות Android"){startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))})
         content.addView(cardButton("הרשאות האפליקציה","פתיחת הרשאות Android"){startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:" + packageName)))})
@@ -265,9 +264,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun subtitle(v:String,s:Float)=text(v,s,Color.LTGRAY).apply{setPadding(0,0,0,18)}
     private fun section(v:String)=text(v,20f,Color.WHITE).apply{setTypeface(null,android.graphics.Typeface.BOLD);setPadding(0,18,0,10)}
     private fun text(v:String,s:Float,c:Int)=TextView(this).apply{text=v;textSize=s;setTextColor(c)}
-    private fun cardButton(t:String,d:String,action:()->Unit)=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,14,18,14);background(card,16f);setOnClickListener{action()};addView(text(t,17f,Color.WHITE).apply{setTypeface(null,android.graphics.Typeface.BOLD)});addView(text(d,13f,Color.LTGRAY).apply{setPadding(0,5,0,0)})}.also{it.isClickable=true}
+    private fun cardButton(t:String,d:String,action:()->Unit)=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,14,18,14);setRoundedBackground(card,16f);setOnClickListener{action()};addView(text(t,17f,Color.WHITE).apply{setTypeface(null,android.graphics.Typeface.BOLD)});addView(text(d,13f,Color.LTGRAY).apply{setPadding(0,5,0,0)})}.also{it.isClickable=true}
     private fun navButton(label:String,action:()->Unit)=Button(this).apply{text=label;setTextColor(Color.WHITE);textSize=13f;isAllCaps=false;setOnClickListener{action()};setBackgroundColor(Color.TRANSPARENT)}
-    private fun roundedBackground(c:Int,r:Float){this@MainActivity.root.background=GradientDrawable().apply{setColor(c);cornerRadius=r}}
-    private fun params(t:Int,l:Int,b:Int,r:Int)=LinearLayout.LayoutParams(-1,ViewGroup.LayoutParams.WRAP_CONTENT).apply{setMargins(l,t,r,b)}
+    private fun setRoundedBackground(c:Int,r:Float){this.root.background=GradientDrawable().apply{setColor(c);cornerRadius=r}}
+    private fun layoutParams(t:Int,l:Int,b:Int,r:Int)=LinearLayout.LayoutParams(-1,ViewGroup.LayoutParams.WRAP_CONTENT).apply{setMargins(l,t,r,b)}
     private fun weightParams()=LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f)
 }
