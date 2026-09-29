@@ -2,6 +2,7 @@ package com.ari900630.agentsforlife
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -88,7 +89,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(16,12,16,12);background(card,16f)}
             row.addView(text(info.loadLabel(packageManager).toString(),15f,Color.WHITE),LinearLayout.LayoutParams(0,-2,1f))
             row.addView(Switch(this).apply{text="חסום";setTextColor(Color.WHITE);isChecked=isAppBlocked(pkg);setOnCheckedChangeListener{_,b->setAppBlocked(pkg,b)}})
-            row.setOnClickListener { startActivity(packageManager.getLaunchIntentForPackage(pkg) ?: Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:"+pkg))) }\n            content.addView(row,params(0,0,8,0))
+            row.setOnClickListener { startActivity(packageManager.getLaunchIntentForPackage(pkg) ?: Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:"+pkg))) }
+            content.addView(row,params(0,0,8,0))
         }
         content.addView(section("מספרים חסומים"))
         val input=EditText(this).apply{hint="מספר לחסימה";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);setSingleLine();background(card,14f);setPadding(18,12,18,12)}
@@ -264,7 +266,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun text(v:String,s:Float,c:Int)=TextView(this).apply{text=v;textSize=s;setTextColor(c)}
     private fun cardButton(t:String,d:String,action:()->Unit)=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,14,18,14);background(card,16f);setOnClickListener{action()};addView(text(t,17f,Color.WHITE).apply{setTypeface(null,android.graphics.Typeface.BOLD)});addView(text(d,13f,Color.LTGRAY).apply{setPadding(0,5,0,0)})}.also{it.isClickable=true}
     private fun navButton(label:String,action:()->Unit)=Button(this).apply{text=label;setTextColor(Color.WHITE);textSize=13f;isAllCaps=false;setOnClickListener{action()};setBackgroundColor(Color.TRANSPARENT)}
-    private fun background(c:Int,r:Float){background=GradientDrawable().apply{setColor(c);cornerRadius=r}}
+    private fun background(c:Int,r:Float){this@MainActivity.root.background=GradientDrawable().apply{setColor(c);cornerRadius=r}}
     private fun params(t:Int,l:Int,b:Int,r:Int)=LinearLayout.LayoutParams(-1,ViewGroup.LayoutParams.WRAP_CONTENT).apply{setMargins(l,t,r,b)}
     private fun weightParams()=LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f)
 }
