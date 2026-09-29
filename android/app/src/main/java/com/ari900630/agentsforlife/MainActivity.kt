@@ -27,11 +27,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private lateinit var tts: TextToSpeech
     private var speech: SpeechRecognizer? = null
     private val prefs by lazy { getSharedPreferences("agents_settings", MODE_PRIVATE) }
-    private val bg = Color.rgb(245, 247, 251)
-    private val card = Color.WHITE
-    private val primary = Color.rgb(45, 91, 210)
-    private val ink = Color.rgb(28, 35, 50)
-    private val muted = Color.rgb(100, 110, 130)
+    private val bg = Color.rgb(10, 12, 22)
+    private val card = Color.rgb(18, 21, 35)
+    private val primary = Color.rgb(116, 92, 255)
+    private val ink = Color.WHITE
+    private val muted = Color.rgb(170, 176, 200)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,7 +55,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(bg) }
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(22,18,22,18) }
         root.addView(ScrollView(this).apply { addView(content) }, LinearLayout.LayoutParams(-1,0,1f))
-        val nav = LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER; setPadding(10,8,10,10); background=rounded(Color.WHITE,22f) }
+        val nav = LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER; setPadding(8,8,8,12); background=rounded(card,24f) }
         nav.addView(navButton("צ'אט\nעם הסוכנים") { showChat() }, weightParams())
         nav.addView(navButton("שיחה\nעם הסוכנים") { showVoice() }, weightParams())
         nav.addView(navButton("הגדרות") { showSettings() }, weightParams())
@@ -67,6 +67,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         content.removeAllViews()
         content.addView(title("Agents for Life",30f))
         content.addView(subtitle("מרכז שליטה אישי עם סוכני AI",16f))
+        val hero=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(20,20,20,20);background=gradientCard()}
+        hero.addView(text("סוכנים שעובדים בשבילך",22f,ink).apply{setTypeface(null,android.graphics.Typeface.BOLD)})
+        hero.addView(text("צור, הפעל ונהל סוכני AI למשימות, שיחה ושליטה במכשיר.",14f,muted).apply{setPadding(0,8,0,14)})
+        hero.addView(cardButton("✦ הסוכנים שלי","פתח את מרכז הסוכנים"){showAgentsDialog()})
+        content.addView(hero,layoutParams(0,0,14,0))
         status=text("",16f,ink).apply{gravity=Gravity.CENTER;setPadding(18,18,18,18);background=rounded(card,16f)}
         content.addView(status,layoutParams(0,0,12,0))
         content.addView(section("הסוכנים שלך"))
@@ -283,7 +288,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun text(v:String,s:Float,c:Int)=TextView(this).apply{text=v;textSize=s;setTextColor(c)}
     private fun cardButton(t:String,d:String,action:()->Unit)=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,14,18,14);background=rounded(card,16f);setOnClickListener{action()};addView(text(t,17f,ink).apply{setTypeface(null,android.graphics.Typeface.BOLD)});addView(text(d,13f,muted).apply{setPadding(0,5,0,0)})}.also{it.isClickable=true}
     private fun navButton(label:String,action:()->Unit)=Button(this).apply{text=label;setTextColor(primary);textSize=13f;isAllCaps=false;setOnClickListener{action()};setBackgroundColor(Color.TRANSPARENT)}
-    private fun rounded(c:Int,r:Float):GradientDrawable=GradientDrawable().apply{setColor(c);cornerRadius=r;setStroke(1,Color.rgb(225,229,238))}
+    private fun gradientCard():GradientDrawable=GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(Color.rgb(40,35,88),Color.rgb(24,73,110))).apply{cornerRadius=24f;setStroke(1,Color.rgb(75,82,125))}
+    private fun rounded(c:Int,r:Float):GradientDrawable=GradientDrawable().apply{setColor(c);cornerRadius=r;setStroke(1,Color.rgb(45,50,72))}
     private fun layoutParams(t:Int,l:Int,b:Int,r:Int)=LinearLayout.LayoutParams(-1,ViewGroup.LayoutParams.WRAP_CONTENT).apply{setMargins(l,t,r,b)}
     private fun weightParams()=LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f)
 }
