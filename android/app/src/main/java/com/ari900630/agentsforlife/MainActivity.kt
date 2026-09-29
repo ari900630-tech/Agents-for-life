@@ -90,7 +90,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         getLaunchableApps().forEach { info ->
             val pkg=info.activityInfo.packageName
             val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(16,12,16,12);background=rounded(card,16f)}
-            row.addView(text(info.loadLabel(packageManager).toString(),15f,Color.WHITE),LinearLayout.LayoutParams(0,-2,1f))
+            row.addView(text(info.loadLabel(packageManager).toString(),15f,ink),LinearLayout.LayoutParams(0,-2,1f))
             row.addView(Switch(this).apply{text="חסום";setTextColor(ink);isChecked=isAppBlocked(pkg);setOnCheckedChangeListener{_,b->setAppBlocked(pkg,b)}})
             row.setOnClickListener { startActivity(packageManager.getLaunchIntentForPackage(pkg) ?: Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:"+pkg))) }
             content.addView(row,layoutParams(0,0,8,0))
@@ -119,23 +119,21 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val spinner=Spinner(this)
         spinner.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,agents.map{it.name})
         content.addView(spinner,layoutParams(0,0,10,0))
-        val endpoint=EditText(this).apply{hint="כתובת שרת AI";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);setSingleLine();setText(prefs.getString("agent_server",""));background=rounded(card,14f);setPadding(16,12,16,12)}
-        content.addView(endpoint,layoutParams(0,0,10,0))
-        val task=EditText(this).apply{hint="כתוב כאן לסוכן...";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);minLines=5;gravity=48;background=rounded(card,14f);setPadding(16,12,16,12)}
+        val task=EditText(this).apply{hint="כתוב כאן לסוכן...";setHintTextColor(Color.rgb(150,155,165));setTextColor(ink);minLines=5;gravity=48;background=rounded(card,14f);setPadding(16,12,16,12)}
         content.addView(task,layoutParams(0,0,10,0))
-        val result=text("התשובה תופיע כאן.",15f,Color.WHITE).apply{setPadding(16,16,16,16);background=rounded(card,16f)}
+        val result=text("התשובה תופיע כאן.",15f,ink).apply{setPadding(16,16,16,16);background=rounded(card,16f)}
         content.addView(result,layoutParams(0,0,12,0))
         content.addView(cardButton("שלח לסוכן","הפעל את הסוכן שבחרת"){
             val a=agents[spinner.selectedItemPosition]
-            val base=endpoint.text.toString().trim()
             val provider=prefs.getString("ai_provider","Gemini") ?: "Gemini"
             val key=prefs.getString("ai_key","") ?: ""
             val request=task.text.toString().trim()
-            if(base.isEmpty()||request.isEmpty()){result.text="הזן כתובת שרת ומשימה.";return@cardButton}
-            prefs.edit().putString("agent_server",base).apply()
+            if(request.isEmpty()){result.text="כתוב משימה לסוכן.";return@cardButton}
+            if(provider!="Server" && key.isEmpty()){result.text="פתח הגדרות והוסף מפתח API חינמי. אין צורך בשרת.";return@cardButton}
+            if(provider=="Server" && prefs.getString("agent_server","").orEmpty().isBlank()){result.text="בחר שרת עצמי רק אם יש לך שרת AI.";return@cardButton}
             result.text="מפעיל את " + a.name + "..."
             Thread{
-                val r=AgentApiClient.run(base,a.name,a.instructions,request,provider,key)
+                val r=AgentApiClient.run(prefs.getString("agent_server","").orEmpty(),a.name,a.instructions,request,provider,key)
                 runOnUiThread{result.text=r.fold({it},{e->"שגיאה: " + e.message})}
             }.start()
         })
@@ -149,17 +147,15 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val spinner=Spinner(this)
         spinner.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,agents.map{it.name})
         content.addView(spinner,layoutParams(0,0,10,0))
-        val endpoint=EditText(this).apply{hint="כתובת שרת AI";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);setSingleLine();setText(prefs.getString("agent_server",""));background=rounded(card,14f);setPadding(16,12,16,12)}
-        content.addView(endpoint,layoutParams(0,0,10,0))
-        val transcript=text("לחץ על המיקרופון והתחל לדבר.",16f,Color.WHITE).apply{setPadding(18,18,18,18);background=rounded(card,16f)}
+        val transcript=text("לחץ על המיקרופון והתחל לדבר.",16f,ink).apply{setPadding(18,18,18,18);background=rounded(card,16f)}
         content.addView(transcript,layoutParams(0,0,10,0))
         content.addView(cardButton("התחל שיחה","דבר אל הסוכן"){
             if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO),700);return@cardButton}
-            startListening(spinner,endpoint,transcript)
+            startListening(spinner,transcript)
         })
     }
 
-    private fun startListening(spinner:Spinner,endpoint:EditText,transcript:TextView){
+    private fun startListening(spinner:Spinner,transcript:TextView){
         if(!SpeechRecognizer.isRecognitionAvailable(this)){transcript.text="זיהוי דיבור אינו זמין במכשיר.";return}
         speech?.destroy()
         speech=SpeechRecognizer.createSpeechRecognizer(this)
@@ -176,12 +172,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 transcript.text="אתה: " + spoken + "\n\nמעבד..."
                 val agents=AgentStore.load(this@MainActivity)
                 val a=agents.getOrNull(spinner.selectedItemPosition)
-                val base=endpoint.text.toString().trim()
+                val base=prefs.getString("agent_server","").orEmpty()
                 val provider=prefs.getString("ai_provider","Gemini") ?: "Gemini"
                 val key=prefs.getString("ai_key","") ?: ""
-                if(a==null||(key.isEmpty()&&base.isEmpty())){transcript.text="הגדר ספק AI ומפתח API בהגדרות.";return}
+                if(a==null||(provider!="Server"&&key.isEmpty())||(provider=="Server"&&base.isBlank())){transcript.text="הגדר ספק AI ומפתח API בהגדרות. אין צורך בשרת עבור Gemini או OpenRouter.";return}
                 Thread{
-                    val r=AgentApiClient.run(base,a.name,a.instructions,spoken)
+                    val r=AgentApiClient.run(base,a.name,a.instructions,spoken,provider,key)
                     runOnUiThread{r.fold(
                         {answer->transcript.text="אתה: " + spoken + "\n\n" + a.name + ": " + answer;speak(answer)},
                         {err->transcript.text="שגיאה: " + err.message}
@@ -213,9 +209,15 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         content.addView(provider,layoutParams(0,0,8,0))
         val apiKey=EditText(this).apply{hint="מפתח API";setHintTextColor(Color.rgb(150,155,165));setTextColor(ink);setSingleLine();inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;setText(prefs.getString("ai_key",""));background=rounded(card,14f);setPadding(16,12,16,12)}
         content.addView(apiKey,layoutParams(0,0,8,0))
-        val endpoint=EditText(this).apply{hint="כתובת שרת AI — רק אם בחרת שרת עצמי";setHintTextColor(Color.rgb(150,155,165));setTextColor(ink);setSingleLine();setText(prefs.getString("agent_server",""));background=rounded(card,14f);setPadding(16,12,16,12)}
+        val endpoint=EditText(this).apply{hint="כתובת שרת AI — נדרש רק לשרת עצמי";setHintTextColor(Color.rgb(150,155,165));setTextColor(ink);setSingleLine();setText(prefs.getString("agent_server",""));background=rounded(card,14f);setPadding(16,12,16,12)}
+        endpoint.visibility=if(savedProvider=="Server")ViewGroup.VISIBLE else ViewGroup.GONE
         content.addView(endpoint,layoutParams(0,0,10,0))
-        content.addView(cardButton("שמור חיבור AI","הסוכנים ישתמשו בהגדרה הזו"){val p=when(provider.selectedItemPosition){1->"OpenRouter";2->"Server";else->"Gemini"};prefs.edit().putString("ai_provider",p).putString("ai_key",apiKey.text.toString().trim()).putString("agent_server",endpoint.text.toString().trim()).apply();Toast.makeText(this,"חיבור ה-AI נשמר",Toast.LENGTH_SHORT).show()})
+        provider.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{
+            override fun onNothingSelected(parent:AdapterView<*>?){}
+            override fun onItemSelected(parent:AdapterView<*>?,view:android.view.View?,position:Int,id:Long){endpoint.visibility=if(position==2)ViewGroup.VISIBLE else ViewGroup.GONE}
+        }
+        content.addView(cardButton("קבלת מפתח Gemini","פתיחת Google AI Studio ליצירת מפתח API"){startActivity(Intent(Intent.ACTION_VIEW,android.net.Uri.parse("https://aistudio.google.com/apikey")))})
+        content.addView(cardButton("שמור חיבור AI","Gemini ו-OpenRouter עובדים ישירות מהטלפון; שרת נדרש רק לשרת עצמי"){val p=when(provider.selectedItemPosition){1->"OpenRouter";2->"Server";else->"Gemini"};prefs.edit().putString("ai_provider",p).putString("ai_key",apiKey.text.toString().trim()).putString("agent_server",endpoint.text.toString().trim()).apply();Toast.makeText(this,"חיבור ה-AI נשמר",Toast.LENGTH_SHORT).show()})
         content.addView(cardButton("שירות נגישות","פתיחת הגדרות Android"){startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))})
         content.addView(cardButton("הרשאות האפליקציה","פתיחת הרשאות Android"){startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:" + packageName)))})
         content.addView(cardButton("ניהול חסימת שיחות","הגדרת Agents for Life כמסנן שיחות"){requestCallScreeningRole()})
@@ -279,8 +281,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun subtitle(v:String,s:Float)=text(v,s,muted).apply{setPadding(0,0,0,18)}
     private fun section(v:String)=text(v,20f,ink).apply{setTypeface(null,android.graphics.Typeface.BOLD);setPadding(0,18,0,10)}
     private fun text(v:String,s:Float,c:Int)=TextView(this).apply{text=v;textSize=s;setTextColor(c)}
-    private fun cardButton(t:String,d:String,action:()->Unit)=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,14,18,14);background=rounded(card,16f);setOnClickListener{action()};addView(text(t,17f,Color.WHITE).apply{setTypeface(null,android.graphics.Typeface.BOLD)});addView(text(d,13f,muted).apply{setPadding(0,5,0,0)})}.also{it.isClickable=true}
-    private fun navButton(label:String,action:()->Unit)=Button(this).apply{text=label;setTextColor(Color.WHITE);textSize=13f;isAllCaps=false;setOnClickListener{action()};setBackgroundColor(Color.TRANSPARENT)}
+    private fun cardButton(t:String,d:String,action:()->Unit)=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,14,18,14);background=rounded(card,16f);setOnClickListener{action()};addView(text(t,17f,ink).apply{setTypeface(null,android.graphics.Typeface.BOLD)});addView(text(d,13f,muted).apply{setPadding(0,5,0,0)})}.also{it.isClickable=true}
+    private fun navButton(label:String,action:()->Unit)=Button(this).apply{text=label;setTextColor(primary);textSize=13f;isAllCaps=false;setOnClickListener{action()};setBackgroundColor(Color.TRANSPARENT)}
     private fun rounded(c:Int,r:Float):GradientDrawable=GradientDrawable().apply{setColor(c);cornerRadius=r;setStroke(1,Color.rgb(225,229,238))}
     private fun layoutParams(t:Int,l:Int,b:Int,r:Int)=LinearLayout.LayoutParams(-1,ViewGroup.LayoutParams.WRAP_CONTENT).apply{setMargins(l,t,r,b)}
     private fun weightParams()=LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f)
