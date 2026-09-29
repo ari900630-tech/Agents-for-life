@@ -3,6 +3,7 @@ package com.ari900630.agentsforlife
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.AlertDialog
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -52,7 +53,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(bg) }
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(22,18,22,18) }
         root.addView(ScrollView(this).apply { addView(content) }, LinearLayout.LayoutParams(-1,0,1f))
-        val nav = LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER; setPadding(10,8,10,10); background(card,22f) }
+        val nav = LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER; setPadding(10,8,10,10); roundedBackground(card,22f) }
         nav.addView(navButton("צ'אט\nעם הסוכנים") { showChat() }, weightParams())
         nav.addView(navButton("שיחה\nעם הסוכנים") { showVoice() }, weightParams())
         nav.addView(navButton("הגדרות") { showSettings() }, weightParams())
@@ -266,7 +267,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun text(v:String,s:Float,c:Int)=TextView(this).apply{text=v;textSize=s;setTextColor(c)}
     private fun cardButton(t:String,d:String,action:()->Unit)=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,14,18,14);background(card,16f);setOnClickListener{action()};addView(text(t,17f,Color.WHITE).apply{setTypeface(null,android.graphics.Typeface.BOLD)});addView(text(d,13f,Color.LTGRAY).apply{setPadding(0,5,0,0)})}.also{it.isClickable=true}
     private fun navButton(label:String,action:()->Unit)=Button(this).apply{text=label;setTextColor(Color.WHITE);textSize=13f;isAllCaps=false;setOnClickListener{action()};setBackgroundColor(Color.TRANSPARENT)}
-    private fun background(c:Int,r:Float){this@MainActivity.root.background=GradientDrawable().apply{setColor(c);cornerRadius=r}}
+    private fun roundedBackground(c:Int,r:Float){this@MainActivity.root.background=GradientDrawable().apply{setColor(c);cornerRadius=r}}
     private fun params(t:Int,l:Int,b:Int,r:Int)=LinearLayout.LayoutParams(-1,ViewGroup.LayoutParams.WRAP_CONTENT).apply{setMargins(l,t,r,b)}
     private fun weightParams()=LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f)
 }
