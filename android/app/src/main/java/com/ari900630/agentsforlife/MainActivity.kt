@@ -128,12 +128,14 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         content.addView(cardButton("שלח לסוכן","הפעל את הסוכן שבחרת"){
             val a=agents[spinner.selectedItemPosition]
             val base=endpoint.text.toString().trim()
+            val provider=prefs.getString("ai_provider","Gemini") ?: "Gemini"
+            val key=prefs.getString("ai_key","") ?: ""
             val request=task.text.toString().trim()
             if(base.isEmpty()||request.isEmpty()){result.text="הזן כתובת שרת ומשימה.";return@cardButton}
             prefs.edit().putString("agent_server",base).apply()
             result.text="מפעיל את " + a.name + "..."
             Thread{
-                val r=AgentApiClient.run(base,a.name,a.instructions,request)
+                val r=AgentApiClient.run(base,a.name,a.instructions,request,provider,key)
                 runOnUiThread{result.text=r.fold({it},{e->"שגיאה: " + e.message})}
             }.start()
         })
@@ -175,7 +177,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 val agents=AgentStore.load(this@MainActivity)
                 val a=agents.getOrNull(spinner.selectedItemPosition)
                 val base=endpoint.text.toString().trim()
-                if(a==null||base.isEmpty()){transcript.text="צריך לבחור סוכן ולהגדיר כתובת שרת.";return}
+                val provider=prefs.getString("ai_provider","Gemini") ?: "Gemini"
+                val key=prefs.getString("ai_key","") ?: ""
+                if(a==null||(key.isEmpty()&&base.isEmpty())){transcript.text="הגדר ספק AI ומפתח API בהגדרות.";return}
                 Thread{
                     val r=AgentApiClient.run(base,a.name,a.instructions,spoken)
                     runOnUiThread{r.fold(
@@ -200,10 +204,18 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun showSettings(){
         content.removeAllViews()
         content.addView(title("הגדרות",27f))
-        content.addView(subtitle("ניהול החיבור, הרשאות ושירותי Agents for Life.",15f))
-        val endpoint=EditText(this).apply{hint="כתובת שרת AI";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);setSingleLine();setText(prefs.getString("agent_server",""));background=rounded(card,14f);setPadding(16,12,16,12)}
+        content.addView(subtitle("חיבור AI, הרשאות ושירותי Agents for Life.",15f))
+        content.addView(section("מנוע הבינה המלאכותית"))
+        val provider=Spinner(this)
+        provider.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,listOf("Gemini — חינמי","OpenRouter — מודלים חינמיים","שרת עצמי"))
+        val savedProvider=prefs.getString("ai_provider","Gemini") ?: "Gemini"
+        provider.setSelection(if(savedProvider=="OpenRouter")1 else if(savedProvider=="Server")2 else 0)
+        content.addView(provider,layoutParams(0,0,8,0))
+        val apiKey=EditText(this).apply{hint="מפתח API";setHintTextColor(Color.rgb(150,155,165));setTextColor(ink);setSingleLine();inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;setText(prefs.getString("ai_key",""));background=rounded(card,14f);setPadding(16,12,16,12)}
+        content.addView(apiKey,layoutParams(0,0,8,0))
+        val endpoint=EditText(this).apply{hint="כתובת שרת AI — רק אם בחרת שרת עצמי";setHintTextColor(Color.rgb(150,155,165));setTextColor(ink);setSingleLine();setText(prefs.getString("agent_server",""));background=rounded(card,14f);setPadding(16,12,16,12)}
         content.addView(endpoint,layoutParams(0,0,10,0))
-        content.addView(cardButton("שמור כתובת שרת","הכתובת תשמש בצ'אט ובשיחה"){prefs.edit().putString("agent_server",endpoint.text.toString().trim()).apply();Toast.makeText(this,"ההגדרה נשמרה",Toast.LENGTH_SHORT).show()})
+        content.addView(cardButton("שמור חיבור AI","הסוכנים ישתמשו בהגדרה הזו"){val p=when(provider.selectedItemPosition){1->"OpenRouter";2->"Server";else->"Gemini"};prefs.edit().putString("ai_provider",p).putString("ai_key",apiKey.text.toString().trim()).putString("agent_server",endpoint.text.toString().trim()).apply();Toast.makeText(this,"חיבור ה-AI נשמר",Toast.LENGTH_SHORT).show()})
         content.addView(cardButton("שירות נגישות","פתיחת הגדרות Android"){startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))})
         content.addView(cardButton("הרשאות האפליקציה","פתיחת הרשאות Android"){startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:" + packageName)))})
         content.addView(cardButton("ניהול חסימת שיחות","הגדרת Agents for Life כמסנן שיחות"){requestCallScreeningRole()})
