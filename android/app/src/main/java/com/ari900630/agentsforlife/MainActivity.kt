@@ -12,6 +12,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.provider.Settings
+import android.app.role.RoleManager
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.*
@@ -74,6 +75,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         content.addView(cardButton("שירות נגישות","מאפשר לסוכן לנהל אפליקציות לאחר אישור המשתמש"){startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))})
         content.addView(cardButton("הרשאת אנשי קשר","גישה לאנשי הקשר לפי הרשאת Android"){requestContacts()})
         content.addView(cardButton("הגדרות והרשאות","פתיחת הגדרות Android של האפליקציה"){startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:" + packageName)))})
+        content.addView(section("פעולות מהירות"))
+        content.addView(cardButton("Wi-Fi","פתיחת הגדרות Wi-Fi"){AgentAction.openSettings(this,"wifi")})
+        content.addView(cardButton("Bluetooth","פתיחת הגדרות Bluetooth"){AgentAction.openSettings(this,"bluetooth")})
+        content.addView(cardButton("צליל ותצוגה","ניהול עוצמת קול ותצוגה"){AgentAction.openSettings(this,"sound")})
+        content.addView(cardButton("אנשי קשר","פתיחת אנשי הקשר"){startActivity(Intent(Intent.ACTION_VIEW,android.net.Uri.parse("content://contacts/people")))})
+        content.addView(cardButton("חיוג","פתיחת לוח החיוג"){startActivity(Intent(Intent.ACTION_DIAL))})
         content.addView(section("אפליקציות"))
         content.addView(cardButton("ניהול אפליקציות","חסימה/פתיחה של אפליקציות באמצעות שירות הנגישות"){startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))})
         getLaunchableApps().forEach { info ->
@@ -81,7 +88,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(16,12,16,12);background(card,16f)}
             row.addView(text(info.loadLabel(packageManager).toString(),15f,Color.WHITE),LinearLayout.LayoutParams(0,-2,1f))
             row.addView(Switch(this).apply{text="חסום";setTextColor(Color.WHITE);isChecked=isAppBlocked(pkg);setOnCheckedChangeListener{_,b->setAppBlocked(pkg,b)}})
-            content.addView(row,params(0,0,8,0))
+            row.setOnClickListener { startActivity(packageManager.getLaunchIntentForPackage(pkg) ?: Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:"+pkg))) }\n            content.addView(row,params(0,0,8,0))
         }
         content.addView(section("מספרים חסומים"))
         val input=EditText(this).apply{hint="מספר לחסימה";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);setSingleLine();background(card,14f);setPadding(18,12,18,12)}
@@ -194,6 +201,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         content.addView(cardButton("שמור כתובת שרת","הכתובת תשמש בצ'אט ובשיחה"){prefs.edit().putString("agent_server",endpoint.text.toString().trim()).apply();Toast.makeText(this,"ההגדרה נשמרה",Toast.LENGTH_SHORT).show()})
         content.addView(cardButton("שירות נגישות","פתיחת הגדרות Android"){startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))})
         content.addView(cardButton("הרשאות האפליקציה","פתיחת הרשאות Android"){startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:" + packageName)))})
+        content.addView(cardButton("ניהול חסימת שיחות","הגדרת Agents for Life כמסנן שיחות"){requestCallScreeningRole()})
         content.addView(cardButton("הגדרות שיחות","פתיחת הגדרות ברירת מחדל"){try{startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))}catch(_:Exception){startActivity(Intent(Settings.ACTION_SETTINGS))}})
         content.addView(cardButton("רענון מצב","בדיקת הרשאות ושירותים"){refreshStatus();Toast.makeText(this,"המצב עודכן",Toast.LENGTH_SHORT).show()})
     }
@@ -218,6 +226,17 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             AgentStore.create(this,name.text.toString(),type.text.toString(),ins.text.toString())
             Toast.makeText(this,"הסוכן נוצר",Toast.LENGTH_SHORT).show()
         }.show()
+    }
+
+    private fun requestCallScreeningRole(){
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            val roleManager = getSystemService(RoleManager::class.java)
+            if (roleManager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)) {
+                if (!roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)) {
+                    startActivityForResult(roleManager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING), 901)
+                } else Toast.makeText(this,"סינון שיחות פעיל",Toast.LENGTH_SHORT).show()
+            } else Toast.makeText(this,"סינון שיחות אינו זמין במכשיר",Toast.LENGTH_SHORT).show()
+        } else startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
     }
 
     private fun refreshStatus(){
