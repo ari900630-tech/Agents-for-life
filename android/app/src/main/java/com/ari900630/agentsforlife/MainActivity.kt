@@ -6,22 +6,39 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.net.Uri
 import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
 import android.provider.Settings
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.*
-import android.app.AlertDialog
+import android.graphics.drawable.GradientDrawable
+import java.util.Locale
 
-class MainActivity : Activity() {
+class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private lateinit var root: LinearLayout
+    private lateinit var content: LinearLayout
     private lateinit var status: TextView
+    private lateinit var tts: TextToSpeech
+    private var speech: SpeechRecognizer? = null
     private val prefs by lazy { getSharedPreferences("agents_settings", MODE_PRIVATE) }
+    private val bg = Color.rgb(7, 11, 22)
+    private val card = Color.rgb(18, 26, 45)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        buildScreen()
+        tts = TextToSpeech(this, this)
+        buildShell()
+        showHome()
+    }
+
+    override fun onDestroy() {
+        speech?.destroy()
+        tts.shutdown()
+        super.onDestroy()
     }
 
     override fun onResume() {
@@ -29,174 +46,200 @@ class MainActivity : Activity() {
         if (::status.isInitialized) refreshStatus()
     }
 
-    private fun buildScreen() {
-        root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.rgb(9, 15, 30))
-            setPadding(28, 28, 28, 28)
-        }
-        val scroll = ScrollView(this)
-        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        scroll.addView(content)
-
-        content.addView(text("Agents for Life", 30f, Color.WHITE).apply { gravity = Gravity.CENTER })
-        content.addView(text("מרכז שליטה אישי לטלפון", 16f, Color.LTGRAY).apply { gravity = Gravity.CENTER; setPadding(0, 4, 0, 22) })
-
-        status = text("", 17f, Color.WHITE).apply {
-            gravity = Gravity.CENTER
-            setPadding(20, 20, 20, 20)
-            setBackgroundColor(Color.rgb(24, 35, 60))
-        }
-        content.addView(status, marginParams())
-
-        content.addView(sectionTitle("סוכני AI"))
-        content.addView(actionButton("הסוכנים שלי — 10 סוגים + יצירה חופשית") { showAgentsDialog() })
-
-        content.addView(sectionTitle("הרשאות ושירותים"))
-        content.addView(actionButton("הפעל / בדוק שירות נגישות") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
-        content.addView(actionButton("הגדרות סינון שיחות") { openCallSettings() })
-        content.addView(actionButton("הרשאת אנשי קשר") { requestContacts() })
-
-        content.addView(sectionTitle("שליטה באפליקציות"))
-        content.addView(text("בחר אילו אפליקציות מותר להפעיל. אפליקציה שנחסמה תיסגר כאשר מנסים לפתוח אותה.", 14f, Color.LTGRAY).apply { setPadding(0, 0, 0, 10) })
-        val apps = getLaunchableApps()
-        if (apps.isEmpty()) content.addView(text("לא נמצאו אפליקציות להפעלה.", 15f, Color.LTGRAY))
-        apps.forEach { info ->
-            val packageName = info.activityInfo.packageName
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(16, 12, 16, 12)
-                setBackgroundColor(Color.rgb(18, 27, 48))
-            }
-            val label = text(info.loadLabel(packageManager).toString(), 16f, Color.WHITE)
-            val toggle = Switch(this).apply {
-                text = "חסום"
-                setTextColor(Color.WHITE)
-                isChecked = isAppBlocked(packageName)
-                setOnCheckedChangeListener { _, checked -> setAppBlocked(packageName, checked) }
-            }
-            row.addView(label, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            row.addView(toggle)
-            content.addView(row, marginParams(0, 8, 0, 0))
-        }
-
-        content.addView(sectionTitle("שליטה בשיחות"))
-        content.addView(text("מספרים ברשימת החסימה יידחו על ידי שירות סינון השיחות.", 14f, Color.LTGRAY).apply { setPadding(0, 0, 0, 10) })
-        val numberInput = EditText(this).apply {
-            hint = "הזן מספר לחסימה"
-            setHintTextColor(Color.GRAY)
-            setTextColor(Color.WHITE)
-            setSingleLine(true)
-        }
-        content.addView(numberInput, marginParams())
-        content.addView(actionButton("חסום מספר") {
-            val number = numberInput.text.toString().trim()
-            if (number.isNotEmpty()) {
-                addBlockedNumber(number)
-                numberInput.text.clear()
-                Toast.makeText(this, "המספר נוסף לחסימה", Toast.LENGTH_SHORT).show()
-                buildScreen()
-            }
-        })
-        val blocked = prefs.getStringSet("blocked_numbers", emptySet()).orEmpty().sorted()
-        blocked.forEach { number ->
-            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-            row.addView(text(number, 16f, Color.WHITE), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            row.addView(actionButton("הסר") { removeBlockedNumber(number); buildScreen() })
-            content.addView(row, marginParams())
-        }
-
-        content.addView(sectionTitle("הגדרות"))
-        content.addView(actionButton("רענן מצב והרשאות") { refreshStatus(); Toast.makeText(this, "המצב עודכן", Toast.LENGTH_SHORT).show() })
-        content.addView(actionButton("פתח הגדרות האפליקציה") { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) })
-
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+    private fun buildShell() {
+        root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(bg) }
+        content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(22,18,22,18) }
+        root.addView(ScrollView(this).apply { addView(content) }, LinearLayout.LayoutParams(-1,0,1f))
+        val nav = LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER; setPadding(10,8,10,10); background(card,22f) }
+        nav.addView(navButton("צ'אט\nעם הסוכנים") { showChat() }, weightParams())
+        nav.addView(navButton("שיחה\nעם הסוכנים") { showVoice() }, weightParams())
+        nav.addView(navButton("הגדרות") { showSettings() }, weightParams())
+        root.addView(nav)
         setContentView(root)
+    }
+
+    private fun showHome() {
+        content.removeAllViews()
+        content.addView(title("Agents for Life",30f))
+        content.addView(subtitle("מרכז שליטה אישי עם סוכני AI",16f))
+        status=text("",16f,Color.WHITE).apply{gravity=Gravity.CENTER;setPadding(18,18,18,18);background(card,16f)}
+        content.addView(status,params(0,0,12,0))
+        content.addView(section("הסוכנים שלך"))
+        content.addView(cardButton("סוכני AI","10 סוגים מוכנים + יצירה חופשית"){showAgentsDialog()})
+        content.addView(section("שליטה במכשיר"))
+        content.addView(cardButton("שירות נגישות","הפעלת יכולות שליטה באפליקציות"){startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))})
+        content.addView(cardButton("הרשאת אנשי קשר","גישה לאנשי הקשר לפי הרשאת Android"){requestContacts()})
+        content.addView(section("אפליקציות"))
+        getLaunchableApps().forEach { info ->
+            val pkg=info.activityInfo.packageName
+            val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(16,12,16,12);background(card,16f)}
+            row.addView(text(info.loadLabel(packageManager).toString(),15f,Color.WHITE),LinearLayout.LayoutParams(0,-2,1f))
+            row.addView(Switch(this).apply{text="חסום";setTextColor(Color.WHITE);isChecked=isAppBlocked(pkg);setOnCheckedChangeListener{_,b->setAppBlocked(pkg,b)}})
+            content.addView(row,params(0,0,8,0))
+        }
+        content.addView(section("מספרים חסומים"))
+        val input=EditText(this).apply{hint="מספר לחסימה";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);setSingleLine();background(card,14f);setPadding(18,12,18,12)}
+        content.addView(input,params(0,0,8,0))
+        content.addView(cardButton("חסום מספר","הוסף לרשימת החסימה"){
+            val n=input.text.toString().trim()
+            if(n.isNotEmpty()){addBlockedNumber(n);input.text.clear();Toast.makeText(this,"המספר נוסף",Toast.LENGTH_SHORT).show();showHome()}
+        })
+        prefs.getStringSet("blocked_numbers",emptySet()).orEmpty().sorted().forEach { n ->
+            val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL}
+            row.addView(text(n,15f,Color.WHITE),LinearLayout.LayoutParams(0,-2,1f))
+            row.addView(Button(this).apply{text="הסר";setOnClickListener{removeBlockedNumber(n);showHome()}})
+            content.addView(row)
+        }
         refreshStatus()
     }
 
-    private fun showAgentsDialog() {
+    private fun showChat() {
+        content.removeAllViews()
+        content.addView(title("צ'אט עם הסוכנים",27f))
+        content.addView(subtitle("בחר סוכן, כתוב משימה וקבל תשובה.",15f))
+        val agents=AgentStore.load(this).ifEmpty{AgentStore.seedTemplates(this);AgentStore.load(this)}
+        val spinner=Spinner(this)
+        spinner.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,agents.map{it.name})
+        content.addView(spinner,params(0,0,10,0))
+        val endpoint=EditText(this).apply{hint="כתובת שרת AI";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);setSingleLine();setText(prefs.getString("agent_server",""));background(card,14f);setPadding(16,12,16,12)}
+        content.addView(endpoint,params(0,0,10,0))
+        val task=EditText(this).apply{hint="כתוב כאן לסוכן...";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);minLines=5;gravity=48;background(card,14f);setPadding(16,12,16,12)}
+        content.addView(task,params(0,0,10,0))
+        val result=text("התשובה תופיע כאן.",15f,Color.WHITE).apply{setPadding(16,16,16,16);background(card,16f)}
+        content.addView(result,params(0,0,12,0))
+        content.addView(cardButton("שלח לסוכן","הפעל את הסוכן שבחרת"){
+            val a=agents[spinner.selectedItemPosition]
+            val base=endpoint.text.toString().trim()
+            val request=task.text.toString().trim()
+            if(base.isEmpty()||request.isEmpty()){result.text="הזן כתובת שרת ומשימה.";return@cardButton}
+            prefs.edit().putString("agent_server",base).apply()
+            result.text="מפעיל את " + a.name + "..."
+            Thread{
+                val r=AgentApiClient.run(base,a.name,a.instructions,request)
+                runOnUiThread{result.text=r.fold({it},{e->"שגיאה: " + e.message})}
+            }.start()
+        })
+    }
+
+    private fun showVoice() {
+        content.removeAllViews()
+        content.addView(title("שיחה עם הסוכנים",27f))
+        content.addView(subtitle("דבר אל הסוכן וקבל תשובה קולית.",15f))
+        val agents=AgentStore.load(this).ifEmpty{AgentStore.seedTemplates(this);AgentStore.load(this)}
+        val spinner=Spinner(this)
+        spinner.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,agents.map{it.name})
+        content.addView(spinner,params(0,0,10,0))
+        val endpoint=EditText(this).apply{hint="כתובת שרת AI";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);setSingleLine();setText(prefs.getString("agent_server",""));background(card,14f);setPadding(16,12,16,12)}
+        content.addView(endpoint,params(0,0,10,0))
+        val transcript=text("לחץ על המיקרופון והתחל לדבר.",16f,Color.WHITE).apply{setPadding(18,18,18,18);background(card,16f)}
+        content.addView(transcript,params(0,0,10,0))
+        content.addView(cardButton("התחל שיחה","דבר אל הסוכן"){
+            if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO),700);return@cardButton}
+            startListening(spinner,endpoint,transcript)
+        })
+    }
+
+    private fun startListening(spinner:Spinner,endpoint:EditText,transcript:TextView){
+        if(!SpeechRecognizer.isRecognitionAvailable(this)){transcript.text="זיהוי דיבור אינו זמין במכשיר.";return}
+        speech?.destroy()
+        speech=SpeechRecognizer.createSpeechRecognizer(this)
+        speech?.setRecognitionListener(object:RecognitionListener{
+            override fun onReadyForSpeech(p:Bundle?){transcript.text="מקשיב..."}
+            override fun onBeginningOfSpeech(){transcript.text="אני מקשיב..."}
+            override fun onRmsChanged(v:Float){}
+            override fun onBufferReceived(b:ByteArray?){}
+            override fun onEndOfSpeech(){}
+            override fun onError(e:Int){transcript.text="לא הצלחתי לזהות דיבור. נסה שוב."}
+            override fun onResults(b:Bundle?){
+                val spoken=b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+                if(spoken.isBlank()){transcript.text="לא זוהה טקסט.";return}
+                transcript.text="אתה: " + spoken + "\n\nמעבד..."
+                val agents=AgentStore.load(this@MainActivity)
+                val a=agents.getOrNull(spinner.selectedItemPosition)
+                val base=endpoint.text.toString().trim()
+                if(a==null||base.isEmpty()){transcript.text="צריך לבחור סוכן ולהגדיר כתובת שרת.";return}
+                Thread{
+                    val r=AgentApiClient.run(base,a.name,a.instructions,spoken)
+                    runOnUiThread{r.fold(
+                        {answer->transcript.text="אתה: " + spoken + "\n\n" + a.name + ": " + answer;speak(answer)},
+                        {err->transcript.text="שגיאה: " + err.message}
+                    )}
+                }.start()
+            }
+            override fun onPartialResults(b:Bundle?){}
+            override fun onEvent(t:Int,p:Bundle?){}
+        })
+        val intent=Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply{
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE,Locale.getDefault())
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS,false)
+        }
+        speech?.startListening(intent)
+    }
+
+    private fun speak(value:String){if(::tts.isInitialized)tts.speak(value,TextToSpeech.QUEUE_FLUSH,null,"agent-answer")}
+
+    private fun showSettings(){
+        content.removeAllViews()
+        content.addView(title("הגדרות",27f))
+        content.addView(subtitle("ניהול החיבור, הרשאות ושירותי Agents for Life.",15f))
+        val endpoint=EditText(this).apply{hint="כתובת שרת AI";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);setSingleLine();setText(prefs.getString("agent_server",""));background(card,14f);setPadding(16,12,16,12)}
+        content.addView(endpoint,params(0,0,10,0))
+        content.addView(cardButton("שמור כתובת שרת","הכתובת תשמש בצ'אט ובשיחה"){prefs.edit().putString("agent_server",endpoint.text.toString().trim()).apply();Toast.makeText(this,"ההגדרה נשמרה",Toast.LENGTH_SHORT).show()})
+        content.addView(cardButton("שירות נגישות","פתיחת הגדרות Android"){startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))})
+        content.addView(cardButton("הרשאות האפליקציה","פתיחת הרשאות Android"){startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:" + packageName)))})
+        content.addView(cardButton("הגדרות שיחות","פתיחת הגדרות ברירת מחדל"){try{startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))}catch(_:Exception){startActivity(Intent(Settings.ACTION_SETTINGS))}})
+        content.addView(cardButton("רענון מצב","בדיקת הרשאות ושירותים"){refreshStatus();Toast.makeText(this,"המצב עודכן",Toast.LENGTH_SHORT).show()})
+    }
+
+    private fun showAgentsDialog(){
         AgentStore.seedTemplates(this)
-        val agents = AgentStore.load(this)
-        val names = agents.map { it.name + " — " + it.type }.toMutableList()
-        names.add(0, "+ צור סוכן חדש")
-        AlertDialog.Builder(this).setTitle("הסוכנים שלי")
-            .setItems(names.toTypedArray()) { _, which ->
-                if (which == 0) showCreateAgentDialog()
-                else Toast.makeText(this, "הסוכן " + agents[which - 1].name + " מוכן להפעלה", Toast.LENGTH_SHORT).show()
-            }.setNegativeButton("סגור", null).show()
+        val agents=AgentStore.load(this)
+        val names=agents.map{it.name + " — " + it.type}.toMutableList()
+        names.add(0,"+ צור סוכן חדש")
+        AlertDialog.Builder(this).setTitle("הסוכנים שלי").setItems(names.toTypedArray()){_,which->
+            if(which==0)showCreateAgentDialog() else Toast.makeText(this,"הסוכן " + agents[which-1].name + " נבחר",Toast.LENGTH_SHORT).show()
+        }.setNegativeButton("סגור",null).show()
     }
 
-    private fun showCreateAgentDialog() {
-        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(32, 8, 32, 0) }
-        val name = EditText(this).apply { hint = "שם הסוכן" }
-        val type = EditText(this).apply { hint = "סוג הסוכן" }
-        val instructions = EditText(this).apply { hint = "מה הסוכן צריך לעשות"; minLines = 4 }
-        box.addView(name); box.addView(type); box.addView(instructions)
-        AlertDialog.Builder(this).setTitle("יצירת סוכן חדש").setView(box)
-            .setPositiveButton("צור") { _, _ ->
-                AgentStore.create(this, name.text.toString(), type.text.toString(), instructions.text.toString())
-                Toast.makeText(this, "הסוכן נוצר", Toast.LENGTH_SHORT).show()
-            }.setNegativeButton("ביטול", null).show()
+    private fun showCreateAgentDialog(){
+        val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(30,8,30,0)}
+        val name=EditText(this).apply{hint="שם הסוכן"}
+        val type=EditText(this).apply{hint="סוג הסוכן"}
+        val ins=EditText(this).apply{hint="מה הסוכן צריך לעשות?";minLines=4}
+        box.addView(name);box.addView(type);box.addView(ins)
+        AlertDialog.Builder(this).setTitle("יצירת סוכן חדש").setView(box).setNegativeButton("ביטול",null).setPositiveButton("צור"){_,_->
+            AgentStore.create(this,name.text.toString(),type.text.toString(),ins.text.toString())
+            Toast.makeText(this,"הסוכן נוצר",Toast.LENGTH_SHORT).show()
+        }.show()
     }
 
-    private fun refreshStatus() {
-        val accessibility = isAccessibilityServiceEnabled()
-        val blockedApps = prefs.getStringSet("blocked_apps", emptySet()).orEmpty().size
-        val blockedNumbers = prefs.getStringSet("blocked_numbers", emptySet()).orEmpty().size
-        status.text = if (accessibility) {
-            "● השירות פעיל\nאפליקציות חסומות: $blockedApps  |  מספרים חסומים: $blockedNumbers"
-        } else {
-            "○ השירות אינו פעיל\nהפעל את שירות הנגישות כדי לאפשר שליטה באפליקציות"
-        }
+    private fun refreshStatus(){
+        val active=isAccessibilityServiceEnabled()
+        val ba=prefs.getStringSet("blocked_apps",emptySet()).orEmpty().size
+        val bn=prefs.getStringSet("blocked_numbers",emptySet()).orEmpty().size
+        if(::status.isInitialized)status.text=if(active)
+            "● שירות הנגישות פעיל\nאפליקציות חסומות: " + ba + "  |  מספרים חסומים: " + bn
+        else
+            "○ שירות הנגישות אינו פעיל\nהפעל אותו כדי לאפשר שליטה באפליקציות"
     }
 
-    private fun getLaunchableApps() = packageManager.queryIntentActivities(
-        Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER),
-        PackageManager.MATCH_ALL
-    ).filter { it.activityInfo.packageName != packageName }.distinctBy { it.activityInfo.packageName }.sortedBy { it.loadLabel(packageManager).toString() }
+    private fun getLaunchableApps()=packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER),PackageManager.MATCH_ALL).filter{it.activityInfo.packageName!=packageName}.distinctBy{it.activityInfo.packageName}.sortedBy{it.loadLabel(packageManager).toString()}
+    private fun isAppBlocked(p:String)=prefs.getStringSet("blocked_apps",emptySet()).orEmpty().contains(p)
+    private fun setAppBlocked(p:String,b:Boolean){val s=prefs.getStringSet("blocked_apps",emptySet()).orEmpty().toMutableSet();if(b)s.add(p)else s.remove(p);prefs.edit().putStringSet("blocked_apps",s).apply();refreshStatus()}
+    private fun addBlockedNumber(n:String){val s=prefs.getStringSet("blocked_numbers",emptySet()).orEmpty().toMutableSet();s.add(n);prefs.edit().putStringSet("blocked_numbers",s).apply()}
+    private fun removeBlockedNumber(n:String){val s=prefs.getStringSet("blocked_numbers",emptySet()).orEmpty().toMutableSet();s.remove(n);prefs.edit().putStringSet("blocked_numbers",s).apply()}
+    private fun requestContacts(){if(android.os.Build.VERSION.SDK_INT>=23&&checkSelfPermission(Manifest.permission.READ_CONTACTS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(arrayOf(Manifest.permission.READ_CONTACTS),42)else Toast.makeText(this,"הרשאת אנשי קשר כבר פעילה",Toast.LENGTH_SHORT).show()}
+    private fun isAccessibilityServiceEnabled():Boolean{val m=getSystemService(ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager;val e=ComponentName(this,AgentAccessibilityService::class.java);return m.getEnabledAccessibilityServiceList(android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL_MASK).any{val s=it.resolveInfo.serviceInfo;ComponentName(s.packageName,s.name)==e}}
+    override fun onInit(status:Int){if(status==TextToSpeech.SUCCESS)tts.language=Locale.getDefault()}
 
-    private fun isAppBlocked(pkg: String) = prefs.getStringSet("blocked_apps", emptySet()).orEmpty().contains(pkg)
-    private fun setAppBlocked(pkg: String, blocked: Boolean) {
-        val set = prefs.getStringSet("blocked_apps", emptySet()).orEmpty().toMutableSet()
-        if (blocked) set.add(pkg) else set.remove(pkg)
-        prefs.edit().putStringSet("blocked_apps", set).apply()
-        refreshStatus()
-    }
-    private fun addBlockedNumber(number: String) {
-        val set = prefs.getStringSet("blocked_numbers", emptySet()).orEmpty().toMutableSet()
-        set.add(number)
-        prefs.edit().putStringSet("blocked_numbers", set).apply()
-    }
-    private fun removeBlockedNumber(number: String) {
-        val set = prefs.getStringSet("blocked_numbers", emptySet()).orEmpty().toMutableSet()
-        set.remove(number)
-        prefs.edit().putStringSet("blocked_numbers", set).apply()
-    }
-
-    private fun requestContacts() {
-        if (android.os.Build.VERSION.SDK_INT >= 23 && checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(arrayOf(Manifest.permission.READ_CONTACTS), 42)
-        } else Toast.makeText(this, "הרשאת אנשי קשר כבר פעילה", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun openCallSettings() {
-        try { startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)) }
-        catch (_: Exception) { startActivity(Intent(Settings.ACTION_SETTINGS)) }
-    }
-
-    private fun text(value: String, size: Float, color: Int) = TextView(this).apply { text = value; textSize = size; setTextColor(color) }
-    private fun sectionTitle(value: String) = text(value, 21f, Color.WHITE).apply { setPadding(0, 28, 0, 12) }
-    private fun actionButton(value: String, action: () -> Unit) = Button(this).apply { text = value; setOnClickListener { action() } }
-    private fun marginParams(t: Int = 0, l: Int = 0, b: Int = 10, r: Int = 0) = LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(l, t, r, b) }
-
-    private fun isAccessibilityServiceEnabled(): Boolean {
-        val manager = getSystemService(ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
-        val expected = ComponentName(this, AgentAccessibilityService::class.java)
-        return manager.getEnabledAccessibilityServiceList(android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL_MASK).any {
-            val s = it.resolveInfo.serviceInfo
-            ComponentName(s.packageName, s.name) == expected
-        }
-    }
+    private fun title(v:String,s:Float)=text(v,s,Color.WHITE).apply{setTypeface(null,android.graphics.Typeface.BOLD);setPadding(0,8,0,4)}
+    private fun subtitle(v:String,s:Float)=text(v,s,Color.LTGRAY).apply{setPadding(0,0,0,18)}
+    private fun section(v:String)=text(v,20f,Color.WHITE).apply{setTypeface(null,android.graphics.Typeface.BOLD);setPadding(0,18,0,10)}
+    private fun text(v:String,s:Float,c:Int)=TextView(this).apply{text=v;textSize=s;setTextColor(c)}
+    private fun cardButton(t:String,d:String,action:()->Unit)=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,14,18,14);background(card,16f);setOnClickListener{action()};addView(text(t,17f,Color.WHITE).apply{setTypeface(null,android.graphics.Typeface.BOLD)});addView(text(d,13f,Color.LTGRAY).apply{setPadding(0,5,0,0)})}.also{it.isClickable=true}
+    private fun navButton(label:String,action:()->Unit)=Button(this).apply{text=label;setTextColor(Color.WHITE);textSize=13f;isAllCaps=false;setOnClickListener{action()};setBackgroundColor(Color.TRANSPARENT)}
+    private fun background(c:Int,r:Float){background=GradientDrawable().apply{setColor(c);cornerRadius=r}}
+    private fun params(t:Int,l:Int,b:Int,r:Int)=LinearLayout.LayoutParams(-1,ViewGroup.LayoutParams.WRAP_CONTENT).apply{setMargins(l,t,r,b)}
+    private fun weightParams()=LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f)
 }
