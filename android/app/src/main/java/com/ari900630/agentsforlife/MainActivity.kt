@@ -10,7 +10,6 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
-import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 
@@ -39,10 +38,10 @@ class MainActivity : Activity() {
         val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         scroll.addView(content)
 
-        content.addView(text("Agents for Life", 30, Color.WHITE).apply { gravity = Gravity.CENTER })
-        content.addView(text("מרכז שליטה אישי לטלפון", 16, Color.LTGRAY).apply { gravity = Gravity.CENTER; setPadding(0, 4, 0, 22) })
+        content.addView(text("Agents for Life", 30f, Color.WHITE).apply { gravity = Gravity.CENTER })
+        content.addView(text("מרכז שליטה אישי לטלפון", 16f, Color.LTGRAY).apply { gravity = Gravity.CENTER; setPadding(0, 4, 0, 22) })
 
-        status = text("", 17, Color.WHITE).apply {
+        status = text("", 17f, Color.WHITE).apply {
             gravity = Gravity.CENTER
             setPadding(20, 20, 20, 20)
             setBackgroundColor(Color.rgb(24, 35, 60))
@@ -55,9 +54,9 @@ class MainActivity : Activity() {
         content.addView(actionButton("הרשאת אנשי קשר") { requestContacts() })
 
         content.addView(sectionTitle("שליטה באפליקציות"))
-        content.addView(text("בחר אילו אפליקציות מותר להפעיל. אפליקציה שנחסמה תיסגר כאשר מנסים לפתוח אותה.", 14, Color.LTGRAY).apply { setPadding(0, 0, 0, 10) })
+        content.addView(text("בחר אילו אפליקציות מותר להפעיל. אפליקציה שנחסמה תיסגר כאשר מנסים לפתוח אותה.", 14f, Color.LTGRAY).apply { setPadding(0, 0, 0, 10) })
         val apps = getLaunchableApps()
-        if (apps.isEmpty()) content.addView(text("לא נמצאו אפליקציות להפעלה.", 15, Color.LTGRAY))
+        if (apps.isEmpty()) content.addView(text("לא נמצאו אפליקציות להפעלה.", 15f, Color.LTGRAY))
         apps.forEach { info ->
             val packageName = info.activityInfo.packageName
             val row = LinearLayout(this).apply {
@@ -66,7 +65,7 @@ class MainActivity : Activity() {
                 setPadding(16, 12, 16, 12)
                 setBackgroundColor(Color.rgb(18, 27, 48))
             }
-            val label = text(info.loadLabel(packageManager).toString(), 16, Color.WHITE)
+            val label = text(info.loadLabel(packageManager).toString(), 16f, Color.WHITE)
             val toggle = Switch(this).apply {
                 text = "חסום"
                 setTextColor(Color.WHITE)
@@ -79,10 +78,10 @@ class MainActivity : Activity() {
         }
 
         content.addView(sectionTitle("שליטה בשיחות"))
-        content.addView(text("מספרים ברשימת החסימה יידחו על ידי שירות סינון השיחות.", 14, Color.LTGRAY).apply { setPadding(0, 0, 0, 10) })
+        content.addView(text("מספרים ברשימת החסימה יידחו על ידי שירות סינון השיחות.", 14f, Color.LTGRAY).apply { setPadding(0, 0, 0, 10) })
         val numberInput = EditText(this).apply {
             hint = "הזן מספר לחסימה"
-            hintTextColor = Color.GRAY
+            setHintTextColor(Color.GRAY)
             setTextColor(Color.WHITE)
             setSingleLine(true)
         }
@@ -99,7 +98,7 @@ class MainActivity : Activity() {
         val blocked = prefs.getStringSet("blocked_numbers", emptySet()).orEmpty().sorted()
         blocked.forEach { number ->
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-            row.addView(text(number, 16, Color.WHITE), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(text(number, 16f, Color.WHITE), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             row.addView(actionButton("הסר") { removeBlockedNumber(number); buildScreen() })
             content.addView(row, marginParams())
         }
