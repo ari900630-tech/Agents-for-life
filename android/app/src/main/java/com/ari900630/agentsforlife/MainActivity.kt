@@ -27,8 +27,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private lateinit var tts: TextToSpeech
     private var speech: SpeechRecognizer? = null
     private val prefs by lazy { getSharedPreferences("agents_settings", MODE_PRIVATE) }
-    private val bg = Color.rgb(7, 11, 22)
-    private val card = Color.rgb(18, 26, 45)
+    private val bg = Color.rgb(245, 247, 251)
+    private val card = Color.WHITE
+    private val primary = Color.rgb(45, 91, 210)
+    private val ink = Color.rgb(28, 35, 50)
+    private val muted = Color.rgb(100, 110, 130)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,7 +55,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(bg) }
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(22,18,22,18) }
         root.addView(ScrollView(this).apply { addView(content) }, LinearLayout.LayoutParams(-1,0,1f))
-        val nav = LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER; setPadding(10,8,10,10); background=rounded(card,22f) }
+        val nav = LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER; setPadding(10,8,10,10); background=rounded(Color.WHITE,22f) }
         nav.addView(navButton("צ'אט\nעם הסוכנים") { showChat() }, weightParams())
         nav.addView(navButton("שיחה\nעם הסוכנים") { showVoice() }, weightParams())
         nav.addView(navButton("הגדרות") { showSettings() }, weightParams())
@@ -64,7 +67,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         content.removeAllViews()
         content.addView(title("Agents for Life",30f))
         content.addView(subtitle("מרכז שליטה אישי עם סוכני AI",16f))
-        status=text("",16f,Color.WHITE).apply{gravity=Gravity.CENTER;setPadding(18,18,18,18);background=rounded(card,16f)}
+        status=text("",16f,ink).apply{gravity=Gravity.CENTER;setPadding(18,18,18,18);background=rounded(card,16f)}
         content.addView(status,layoutParams(0,0,12,0))
         content.addView(section("הסוכנים שלך"))
         content.addView(cardButton("סוכני AI","10 סוגים מוכנים + יצירה חופשית"){showAgentsDialog()})
@@ -88,12 +91,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             val pkg=info.activityInfo.packageName
             val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(16,12,16,12);background=rounded(card,16f)}
             row.addView(text(info.loadLabel(packageManager).toString(),15f,Color.WHITE),LinearLayout.LayoutParams(0,-2,1f))
-            row.addView(Switch(this).apply{text="חסום";setTextColor(Color.WHITE);isChecked=isAppBlocked(pkg);setOnCheckedChangeListener{_,b->setAppBlocked(pkg,b)}})
+            row.addView(Switch(this).apply{text="חסום";setTextColor(ink);isChecked=isAppBlocked(pkg);setOnCheckedChangeListener{_,b->setAppBlocked(pkg,b)}})
             row.setOnClickListener { startActivity(packageManager.getLaunchIntentForPackage(pkg) ?: Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:"+pkg))) }
             content.addView(row,layoutParams(0,0,8,0))
         }
         content.addView(section("מספרים חסומים"))
-        val input=EditText(this).apply{hint="מספר לחסימה";setHintTextColor(Color.GRAY);setTextColor(Color.WHITE);setSingleLine();background=rounded(card,14f);setPadding(18,12,18,12)}
+        val input=EditText(this).apply{hint="מספר לחסימה";setHintTextColor(Color.rgb(150,155,165));setTextColor(ink);setSingleLine();background=rounded(card,14f);setPadding(18,12,18,12)}
         content.addView(input,layoutParams(0,0,8,0))
         content.addView(cardButton("חסום מספר","הוסף לרשימת החסימה"){
             val n=input.text.toString().trim()
@@ -101,7 +104,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         })
         prefs.getStringSet("blocked_numbers",emptySet()).orEmpty().sorted().forEach { n ->
             val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL}
-            row.addView(text(n,15f,Color.WHITE),LinearLayout.LayoutParams(0,-2,1f))
+            row.addView(text(n,15f,ink),LinearLayout.LayoutParams(0,-2,1f))
             row.addView(Button(this).apply{text="הסר";setOnClickListener{removeBlockedNumber(n);showHome()}})
             content.addView(row)
         }
@@ -260,13 +263,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun isAccessibilityServiceEnabled():Boolean{val m=getSystemService(ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager;val e=ComponentName(this,AgentAccessibilityService::class.java);return m.getEnabledAccessibilityServiceList(android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL_MASK).any{val s=it.resolveInfo.serviceInfo;ComponentName(s.packageName,s.name)==e}}
     override fun onInit(status:Int){if(status==TextToSpeech.SUCCESS)tts.language=Locale.getDefault()}
 
-    private fun title(v:String,s:Float)=text(v,s,Color.WHITE).apply{setTypeface(null,android.graphics.Typeface.BOLD);setPadding(0,8,0,4)}
-    private fun subtitle(v:String,s:Float)=text(v,s,Color.LTGRAY).apply{setPadding(0,0,0,18)}
-    private fun section(v:String)=text(v,20f,Color.WHITE).apply{setTypeface(null,android.graphics.Typeface.BOLD);setPadding(0,18,0,10)}
+    private fun title(v:String,s:Float)=text(v,s,ink).apply{setTypeface(null,android.graphics.Typeface.BOLD);setPadding(0,8,0,4)}
+    private fun subtitle(v:String,s:Float)=text(v,s,muted).apply{setPadding(0,0,0,18)}
+    private fun section(v:String)=text(v,20f,ink).apply{setTypeface(null,android.graphics.Typeface.BOLD);setPadding(0,18,0,10)}
     private fun text(v:String,s:Float,c:Int)=TextView(this).apply{text=v;textSize=s;setTextColor(c)}
-    private fun cardButton(t:String,d:String,action:()->Unit)=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,14,18,14);background=rounded(card,16f);setOnClickListener{action()};addView(text(t,17f,Color.WHITE).apply{setTypeface(null,android.graphics.Typeface.BOLD)});addView(text(d,13f,Color.LTGRAY).apply{setPadding(0,5,0,0)})}.also{it.isClickable=true}
+    private fun cardButton(t:String,d:String,action:()->Unit)=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,14,18,14);background=rounded(card,16f);setOnClickListener{action()};addView(text(t,17f,Color.WHITE).apply{setTypeface(null,android.graphics.Typeface.BOLD)});addView(text(d,13f,muted).apply{setPadding(0,5,0,0)})}.also{it.isClickable=true}
     private fun navButton(label:String,action:()->Unit)=Button(this).apply{text=label;setTextColor(Color.WHITE);textSize=13f;isAllCaps=false;setOnClickListener{action()};setBackgroundColor(Color.TRANSPARENT)}
-    private fun rounded(c:Int,r:Float):GradientDrawable=GradientDrawable().apply{setColor(c);cornerRadius=r}
+    private fun rounded(c:Int,r:Float):GradientDrawable=GradientDrawable().apply{setColor(c);cornerRadius=r;setStroke(1,Color.rgb(225,229,238)}
     private fun layoutParams(t:Int,l:Int,b:Int,r:Int)=LinearLayout.LayoutParams(-1,ViewGroup.LayoutParams.WRAP_CONTENT).apply{setMargins(l,t,r,b)}
     private fun weightParams()=LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f)
 }
