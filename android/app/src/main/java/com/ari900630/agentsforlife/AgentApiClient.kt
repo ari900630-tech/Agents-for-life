@@ -27,7 +27,7 @@ object AgentApiClient {
         val url=URL("https://openrouter.ai/api/v1/chat/completions")
         val prompt="You are the agent named \"$name\". Role: $instructions\n\nUser task:\n$task\n\nAnswer directly and honestly."
         val body=JSONObject().put("model","openrouter/free").put("messages",JSONArray().put(JSONObject().put("role","user").put("content",prompt))).toString()
-        return post(url,body,{json->json.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")?.optString("content").orEmpty()},key)
+        return post(url,body,key,{json->json.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")?.optString("content").orEmpty()})
     }
 
     private fun runServer(base:String,name:String,instructions:String,task:String):Result<String>{
@@ -36,7 +36,7 @@ object AgentApiClient {
         return post(URL(base.trimEnd('/')+"/api/run"),body){json->if(json.optBoolean("ok"))json.optString("output") else throw IllegalStateException(json.optString("error","שגיאה בהפעלת הסוכן"))}
     }
 
-    private fun post(url:URL,body:String,extract:(JSONObject)->String,key:String=""):Result<String>{
+    private fun post(url:URL,body:String,key:String="",extract:(JSONObject)->String):Result<String>{
         val c=url.openConnection() as HttpURLConnection
         c.requestMethod="POST";c.connectTimeout=15000;c.readTimeout=60000;c.doOutput=true;c.setRequestProperty("Content-Type","application/json")
         if(key.isNotBlank()) c.setRequestProperty("Authorization","Bearer $key")
