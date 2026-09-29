@@ -67,9 +67,15 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         content.addView(section("הסוכנים שלך"))
         content.addView(cardButton("סוכני AI","10 סוגים מוכנים + יצירה חופשית"){showAgentsDialog()})
         content.addView(section("שליטה במכשיר"))
-        content.addView(cardButton("שירות נגישות","הפעלת יכולות שליטה באפליקציות"){startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))})
+        content.addView(cardButton("Wi‑Fi","פתיחת הגדרות Wi‑Fi של Android"){AgentAction.openSettings(this,"wifi")})
+        content.addView(cardButton("Bluetooth","פתיחת הגדרות Bluetooth של Android"){AgentAction.openSettings(this,"bluetooth")})
+        content.addView(cardButton("צליל","פתיחת הגדרות הצליל של Android"){AgentAction.openSettings(this,"sound")})
+        content.addView(cardButton("תצוגה","פתיחת הגדרות התצוגה של Android"){AgentAction.openSettings(this,"display")})
+        content.addView(cardButton("שירות נגישות","מאפשר לסוכן לנהל אפליקציות לאחר אישור המשתמש"){startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))})
         content.addView(cardButton("הרשאת אנשי קשר","גישה לאנשי הקשר לפי הרשאת Android"){requestContacts()})
+        content.addView(cardButton("הגדרות והרשאות","פתיחת הגדרות Android של האפליקציה"){startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:" + packageName)))})
         content.addView(section("אפליקציות"))
+        content.addView(cardButton("ניהול אפליקציות","חסימה/פתיחה של אפליקציות באמצעות שירות הנגישות"){startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))})
         getLaunchableApps().forEach { info ->
             val pkg=info.activityInfo.packageName
             val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(16,12,16,12);background(card,16f)}
