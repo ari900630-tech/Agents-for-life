@@ -12,6 +12,7 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.*
+import android.app.AlertDialog
 
 class MainActivity : Activity() {
     private lateinit var root: LinearLayout
@@ -47,6 +48,9 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.rgb(24, 35, 60))
         }
         content.addView(status, marginParams())
+
+        content.addView(sectionTitle("סוכני AI"))
+        content.addView(actionButton("הסוכנים שלי — 10 סוגים + יצירה חופשית") { showAgentsDialog() })
 
         content.addView(sectionTitle("הרשאות ושירותים"))
         content.addView(actionButton("הפעל / בדוק שירות נגישות") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
@@ -110,6 +114,31 @@ class MainActivity : Activity() {
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
         refreshStatus()
+    }
+
+    private fun showAgentsDialog() {
+        AgentStore.seedTemplates(this)
+        val agents = AgentStore.load(this)
+        val names = agents.map { it.name + " — " + it.type }.toMutableList()
+        names.add(0, "+ צור סוכן חדש")
+        AlertDialog.Builder(this).setTitle("הסוכנים שלי")
+            .setItems(names.toTypedArray()) { _, which ->
+                if (which == 0) showCreateAgentDialog()
+                else Toast.makeText(this, "הסוכן " + agents[which - 1].name + " מוכן להפעלה", Toast.LENGTH_SHORT).show()
+            }.setNegativeButton("סגור", null).show()
+    }
+
+    private fun showCreateAgentDialog() {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(32, 8, 32, 0) }
+        val name = EditText(this).apply { hint = "שם הסוכן" }
+        val type = EditText(this).apply { hint = "סוג הסוכן" }
+        val instructions = EditText(this).apply { hint = "מה הסוכן צריך לעשות"; minLines = 4 }
+        box.addView(name); box.addView(type); box.addView(instructions)
+        AlertDialog.Builder(this).setTitle("יצירת סוכן חדש").setView(box)
+            .setPositiveButton("צור") { _, _ ->
+                AgentStore.create(this, name.text.toString(), type.text.toString(), instructions.text.toString())
+                Toast.makeText(this, "הסוכן נוצר", Toast.LENGTH_SHORT).show()
+            }.setNegativeButton("ביטול", null).show()
     }
 
     private fun refreshStatus() {
