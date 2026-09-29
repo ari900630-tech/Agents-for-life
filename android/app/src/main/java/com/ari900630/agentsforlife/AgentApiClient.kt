@@ -8,19 +8,28 @@ import org.json.JSONObject
 object AgentApiClient {
     fun run(baseUrl: String, agentName: String, instructions: String, task: String, provider: String = "Gemini", apiKey: String = ""): Result<String> {
         return try {
-            if (apiKey.isNotBlank()) when(provider) {
-                "Gemini" -> runGemini(apiKey, agentName, instructions, task)
-                "OpenRouter" -> runOpenRouter(apiKey, agentName, instructions, task)
-                else -> runServer(baseUrl, agentName, instructions, task)
-            } else runServer(baseUrl, agentName, instructions, task)
+            when (provider) {
+                "Gemini" -> if (apiKey.isNotBlank()) {
+                    runGemini(apiKey, agentName, instructions, task)
+                } else {
+                    Result.failure(IllegalStateException("חסר מפתח Gemini API. אין צורך בשרת. הוסף מפתח חינמי בהגדרות."))
+                }
+                "OpenRouter" -> if (apiKey.isNotBlank()) {
+                    runOpenRouter(apiKey, agentName, instructions, task)
+                } else {
+                    Result.failure(IllegalStateException("חסר מפתח OpenRouter. אין צורך בשרת. הוסף מפתח בהגדרות."))
+                }
+                "Server" -> runServer(baseUrl, agentName, instructions, task)
+                else -> Result.failure(IllegalStateException("ספק AI לא מוכר"))
+            }
         } catch (e: Exception) { Result.failure(e) }
     }
 
     private fun runGemini(key:String,name:String,instructions:String,task:String):Result<String>{
-        val url=URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key="+java.net.URLEncoder.encode(key,"UTF-8"))
+        val url=URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent")
         val prompt="You are the agent named \"$name\". Role: $instructions\n\nUser task:\n$task\n\nAnswer directly and honestly."
         val body=JSONObject().put("contents",JSONArray().put(JSONObject().put("parts",JSONArray().put(JSONObject().put("text",prompt))))).toString()
-        return post(url,body){json->json.optJSONArray("candidates")?.optJSONObject(0)?.optJSONObject("content")?.optJSONArray("parts")?.optJSONObject(0)?.optString("text").orEmpty()}
+        return post(url,body,key){json->json.optJSONArray("candidates")?.optJSONObject(0)?.optJSONObject("content")?.optJSONArray("parts")?.optJSONObject(0)?.optString("text").orEmpty()}
     }
 
     private fun runOpenRouter(key:String,name:String,instructions:String,task:String):Result<String>{
