@@ -3,7 +3,7 @@ package com.ari900630.agentsforlife
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.provider.Settings
+import android.provider.Settings\nimport android.Manifest\nimport android.content.pm.PackageManager
 
 /** Actions exposed to AI agents only after the user grants the relevant permission. */
 object AgentAction {
