@@ -4,10 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
-import android.Manifest
-import android.content.pm.PackageManager
 
-/** Actions exposed to AI agents only after the user grants the relevant permission. */
+/** Safe device actions exposed to agents through user-visible Android settings and intents. */
 object AgentAction {
     fun openSettings(context: Context, action: String): Boolean {
         val intent = when (action) {
@@ -26,7 +24,7 @@ object AgentAction {
         val number = phoneNumber.trim()
         if (number.isEmpty()) return false
         context.startActivity(
-            Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(number)}"))
+            Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(number)))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
         return true
