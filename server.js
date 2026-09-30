@@ -33,18 +33,19 @@ function promptFor(agent, task) {
   return `You are the agent named "${agent.name}".\nYour role and instructions:\n${agent.instructions}\n\nExecute the user's task directly. Be concrete, concise, and action-oriented. If a requested action requires an external account, credential, approval, or human confirmation that you do not have, clearly identify the missing step instead of pretending it was completed. Never claim an external action happened unless an available tool actually completed it.\n\nFor Android device control, when the user explicitly requests an action, emit the exact marker [[DEVICE_ACTION:{"type":"ACTION_TYPE",...}]]. Allowed types: OPEN_SETTINGS with setting wifi, bluetooth, sound, display, accessibility; CALL with number; OPEN_URL with http/https URL; LAUNCH_APP with Android package; HOME; BACK; RECENTS; NOTIFICATIONS. The Android app asks the user for confirmation before executing each marker. Do not emit markers for unrequested actions.\n\nUser task:\n${task.trim()}`;
 }
 
-async function runOpenRouter(prompt, webSearch) {
+async function runOpenRouter(prompt, webSearch, model = openRouterModel) {
   const client = new OpenAI({ apiKey: process.env.OPENROUTER_API_KEY, baseURL: 'https://openrouter.ai/api/v1' });
   const response = await client.chat.completions.create({
-    model: openRouterModel,
+    model,
     messages: [{ role: 'user', content: prompt }],
     ...(webSearch ? { extra_headers: { 'HTTP-Referer': 'https://github.com/ari900630-tech/Agents-for-life', 'X-Title': 'Agents for Life' } } : {})
   });
   return response.choices?.[0]?.message?.content || '';
 }
 
-async function runGemini(prompt) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel)}:generateContent?key=${encodeURIComponent(process.env.GEMINI_API_KEY)}`;
+async function runGemini(prompt, model = geminiModel) {
+  const selectedModel = model.startsWith('models/') ? model.slice(7) : model;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(selectedModel)}:generateContent?key=${encodeURIComponent(process.env.GEMINI_API_KEY)}`;
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -66,10 +67,10 @@ async function runOllama(prompt) {
   return data?.message?.content || '';
 }
 
-async function runGroq(prompt) {
+async function runGroq(prompt, model = groqModel) {
   const client = new OpenAI({ apiKey: process.env.GROQ_API_KEY, baseURL: 'https://api.groq.com/openai/v1' });
   const response = await client.chat.completions.create({
-    model: groqModel,
+    model,
     messages: [{ role: 'user', content: prompt }]
   });
   return response.choices?.[0]?.message?.content || '';
@@ -86,16 +87,48 @@ async function runOpenAI(prompt, webSearch) {
   return response.output_text || '';
 }
 
+app.get('/api/models', async (_req, res) => {
+  const models = [];
+  if (process.env.GROQ_API_KEY) {
+    try {
+      const r = await fetch('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}` } });
+      const d = await r.json();
+      for (const m of d?.data || []) models.push({ provider: 'Groq', id: m.id, name: m.id, type: 'chat' });
+    } catch (e) { console.error('Groq models failed:', e?.message || e); }
+  }
+  if (process.env.OPENROUTER_API_KEY) {
+    try {
+      const r = await fetch('https://openrouter.ai/api/v1/models', { headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}` } });
+      const d = await r.json();
+      for (const m of d?.data || []) models.push({ provider: 'OpenRouter', id: m.id, name: m.name || m.id, type: 'chat', context: m.context_length });
+    } catch (e) { console.error('OpenRouter models failed:', e?.message || e); }
+  }
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(process.env.GEMINI_API_KEY)}`);
+      const d = await r.json();
+      for (const m of d?.models || []) if ((m.supportedGenerationMethods || []).includes('generateContent')) models.push({ provider: 'Gemini', id: m.name, name: m.displayName || m.name, type: 'chat', context: m.inputTokenLimit });
+    } catch (e) { console.error('Gemini models failed:', e?.message || e); }
+  }
+  res.json({ ok: true, models });
+});
+
 app.post('/api/run', async (req, res) => {
-  const { agent, task } = req.body || {};
+  const { agent, task, model, provider } = req.body || {};
   if (!agent?.name || !agent?.instructions || !task?.trim()) {
     return res.status(400).json({ error: 'Agent name, instructions and task are required.' });
   }
 
   const prompt = promptFor(agent, task);
   const attempts = [];
-  if (process.env.OPENROUTER_API_KEY) attempts.push(['OpenRouter Free', () => runOpenRouter(prompt, agent.webSearch)]);
-  if (process.env.GEMINI_API_KEY) attempts.push(['Google Gemini Free', () => runGemini(prompt)]);
+  if (provider === 'Groq' && process.env.GROQ_API_KEY) attempts.push(['Groq', () => runGroq(prompt, model)]);
+  else if (provider === 'OpenRouter' && process.env.OPENROUTER_API_KEY) attempts.push(['OpenRouter', () => runOpenRouter(prompt, agent.webSearch, model)]);
+  else if (provider === 'Gemini' && process.env.GEMINI_API_KEY) attempts.push(['Google Gemini', () => runGemini(prompt, model)]);
+  else {
+    if (process.env.GROQ_API_KEY) attempts.push(['Groq', () => runGroq(prompt, model)]);
+    if (process.env.OPENROUTER_API_KEY) attempts.push(['OpenRouter', () => runOpenRouter(prompt, agent.webSearch, model)]);
+    if (process.env.GEMINI_API_KEY) attempts.push(['Google Gemini', () => runGemini(prompt, model)]);
+  }
   if (process.env.OLLAMA_URL) attempts.push(['Ollama Local', () => runOllama(prompt)]);
   if (process.env.OPENAI_API_KEY) attempts.push(['OpenAI', () => runOpenAI(prompt, agent.webSearch)]);
   if (process.env.GROQ_API_KEY) attempts.push(['Groq', () => runGroq(prompt)]);
