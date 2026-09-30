@@ -28,7 +28,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 function promptFor(agent, task) {
-  return `You are the agent named "${agent.name}".\nYour role and instructions:\n${agent.instructions}\n\nExecute the user's task directly. Be concrete, concise, and action-oriented. If a requested action requires an external account, credential, approval, or human confirmation that you do not have, clearly identify the missing step instead of pretending it was completed. Never claim an external action happened unless an available tool actually completed it.\n\nUser task:\n${task.trim()}`;
+  return `You are the agent named "${agent.name}".\nYour role and instructions:\n${agent.instructions}\n\nExecute the user's task directly. Be concrete, concise, and action-oriented. If a requested action requires an external account, credential, approval, or human confirmation that you do not have, clearly identify the missing step instead of pretending it was completed. Never claim an external action happened unless an available tool actually completed it.\n\nFor Android device control, when the user explicitly requests an action, emit the exact marker [[DEVICE_ACTION:{"type":"ACTION_TYPE",...}]]. Allowed types: OPEN_SETTINGS with setting wifi, bluetooth, sound, display, accessibility; CALL with number; OPEN_URL with http/https URL; LAUNCH_APP with Android package; HOME; BACK; RECENTS; NOTIFICATIONS. The Android app asks the user for confirmation before executing each marker. Do not emit markers for unrequested actions.\n\nUser task:\n${task.trim()}`;
 }
 
 async function runOpenRouter(prompt, webSearch) {
