@@ -42,7 +42,7 @@ class AgentHubActivity : Activity() {
                     val base=endpoint.text.toString().trim(); val request=task.text.toString().trim()
                     if(base.isBlank()||request.isBlank()){ result.text="הזן כתובת שרת ומשימה."; return@setOnClickListener }
                     prefs.edit().putString("agent_server",base).apply(); result.text="מפעיל את $name..."
-                    Thread { val response=AgentApiClient.run(base,name,instructions,request); runOnUiThread { result.text=response.fold({"✓ $name\n\n$it"},{"✕ ${it.message ?: "שגיאה"}"}) } }.start()
+                    Thread { val response=AgentApiClient.run(base,name,instructions,request); runOnUiThread { response.fold({answer->AgentActionBridge.offerActions(this@AgentHubActivity,answer){result.text="✓ $name\n\n$it"}},{err->result.text="✕ ${err.message ?: "שגיאה"}"}) } }.start()
                 }
             },params(0,0,8,0))
         }
