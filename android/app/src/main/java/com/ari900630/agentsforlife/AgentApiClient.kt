@@ -5,7 +5,8 @@ import java.net.URL
 import org.json.JSONArray
 import org.json.JSONObject
 
-object AgentApiClient {\n    private const val ACTION_PROTOCOL = "If the task explicitly asks you to control the Android device, you may request actions using markers like [[DEVICE_ACTION:{\\\"type\\\":\\\"HOME\\\"}]]. Allowed types: OPEN_SETTINGS (wifi, bluetooth, sound, display, accessibility), CALL (number), OPEN_URL (http/https), LAUNCH_APP (package), HOME, BACK, RECENTS, NOTIFICATIONS. Never request an action unless the user explicitly asked for it or it is necessary to complete the stated task. The Android app asks for confirmation before execution."
+object AgentApiClient {
+    private const val ACTION_PROTOCOL = "If the task explicitly asks you to control the Android device, you may request actions using markers like [[DEVICE_ACTION:{\\\"type\\\":\\\"HOME\\\"}]]. Allowed types: OPEN_SETTINGS (wifi, bluetooth, sound, display, accessibility), CALL (number), OPEN_URL (http/https), LAUNCH_APP (package), HOME, BACK, RECENTS, NOTIFICATIONS. Never request an action unless the user explicitly asked for it or it is necessary to complete the stated task. The Android app asks for confirmation before execution."
     fun run(baseUrl: String, agentName: String, instructions: String, task: String, provider: String = "Gemini", apiKey: String = ""): Result<String> {
         return try {
             when (provider) {
