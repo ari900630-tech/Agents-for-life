@@ -139,7 +139,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             result.text="מפעיל את " + a.name + "..."
             Thread{
                 val r=AgentApiClient.run(prefs.getString("agent_server","").orEmpty(),a.name,a.instructions,request,provider,key)
-                runOnUiThread{result.text=r.fold({it},{e->"שגיאה: " + e.message})}
+                runOnUiThread{r.fold({answer->AgentActionBridge.offerActions(this,answer){result.text=it}},{e->result.text="שגיאה: " + e.message})}
             }.start()
         })
     }
