@@ -15,6 +15,8 @@ import android.speech.tts.TextToSpeech
 import android.provider.Settings
 import android.app.role.RoleManager
 import android.view.Gravity
+import android.app.assist.AssistContent
+import android.app.assist.AssistStructure
 import android.view.ViewGroup
 import android.widget.*
 import android.graphics.drawable.GradientDrawable
@@ -33,7 +35,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private val ink = Color.WHITE
     private val muted = Color.rgb(170, 176, 200)
 
-    override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onProvideAssistContent(outContent: AssistContent) {\n        super.onProvideAssistContent(outContent)\n        outContent.title = "Agents for Life"\n        outContent.webUri = android.net.Uri.parse("https://github.com/ari900630-tech/Agents-for-life")\n    }\n\n    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         tts = TextToSpeech(this, this)
         buildShell()
