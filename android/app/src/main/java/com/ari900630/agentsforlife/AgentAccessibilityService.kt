@@ -6,6 +6,16 @@ import android.view.accessibility.AccessibilityEvent
 class AgentAccessibilityService : AccessibilityService() {
     private val prefs by lazy { getSharedPreferences("agents_settings", MODE_PRIVATE) }
 
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        instance = this
+    }
+
+    override fun onDestroy() {
+        if (instance === this) instance = null
+        super.onDestroy()
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val pkg = event?.packageName?.toString() ?: return
         if (pkg == packageName) return
@@ -16,4 +26,10 @@ class AgentAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() = Unit
+
+    companion object {
+        @Volatile private var instance: AgentAccessibilityService? = null
+
+        fun performGlobal(action: Int): Boolean = instance?.performGlobalAction(action) == true
+    }
 }
