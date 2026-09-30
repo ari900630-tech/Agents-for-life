@@ -125,7 +125,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         spinner.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,agents.map{it.name})
         content.addView(spinner,layoutParams(0,0,8,0))
         val modelSpinner=Spinner(this)
-        val modelOptions=mutableListOf("Groq — openai/gpt-oss-120b","Groq — openai/gpt-oss-20b","Groq — groq/compound-mini","OpenRouter — openrouter/free","Gemini — gemini-2.5-flash-lite")
+        val modelOptions=mutableListOf("Groq — openai/gpt-oss-120b","Groq — openai/gpt-oss-20b","Groq — qwen/qwen3.8-27b","Groq — openai/gpt-oss-safeguard-20b","Groq — minimaxai/minimax-m2.7","OpenRouter — openrouter/free","Gemini — gemini-2.5-flash-lite")
         modelSpinner.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,modelOptions)
         content.addView(modelSpinner,layoutParams(0,0,10,0))
         val configuredServer=prefs.getString("agent_server","").orEmpty()
@@ -139,19 +139,19 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             val key=prefs.getString("ai_key","") ?: ""
             val selected=modelSpinner.selectedItem?.toString().orEmpty()
             val provider=when {
-                selected.startsWith("Groq") -> "Groq"
+                selected.startsWith("Groq") -> "Server"
                 selected.startsWith("OpenRouter") -> "OpenRouter"
                 selected.startsWith("Gemini") -> "Gemini"
                 else -> prefs.getString("ai_provider","Server") ?: "Server"
             }
-            val model=selected.substringAfter(" — ","").trim()
+            val model=selected.substringAfter(" — ","").trim()\n            val backendProvider=if(selected.startsWith("Groq")) "Groq" else provider
             val request=task.text.toString().trim()
             if(request.isEmpty()){result.text="כתוב משימה לסוכן.";return@cardButton}
             if(provider!="Server" && key.isEmpty()){result.text="המפתח של הספק חסר בהגדרות.";return@cardButton}
-            if(provider=="Server" && prefs.getString("agent_server","").orEmpty().isBlank()){result.text="הגדר כתובת שרת AI בהגדרות.";return@cardButton}
+            if(provider=="Server" && prefs.getString("agent_server","").orEmpty().isBlank()){result.text="כדי להשתמש במודלי Groq יש להגדיר כתובת שרת AI בהגדרות.";return@cardButton}
             result.text="מפעיל את " + a.name + "..."
             Thread{
-                val r=AgentApiClient.run(prefs.getString("agent_server","").orEmpty(),a.name,a.instructions,request,provider,key,model)
+                val r=AgentApiClient.run(prefs.getString("agent_server","").orEmpty(),a.name,a.instructions,request,provider,key,model,backendProvider)
                 runOnUiThread{r.fold({answer->AgentActionBridge.offerActions(this,answer){result.text=it}},{e->result.text="שגיאה: " + e.message})}
             }.start()
         })
