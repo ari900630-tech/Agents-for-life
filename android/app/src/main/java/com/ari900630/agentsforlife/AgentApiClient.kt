@@ -5,7 +5,7 @@ import java.net.URL
 import org.json.JSONArray
 import org.json.JSONObject
 
-object AgentApiClient {
+object AgentApiClient {\n    private const val ACTION_PROTOCOL = "If the task explicitly asks you to control the Android device, you may request actions using markers like [[DEVICE_ACTION:{\\\"type\\\":\\\"HOME\\\"}]]. Allowed types: OPEN_SETTINGS (wifi, bluetooth, sound, display, accessibility), CALL (number), OPEN_URL (http/https), LAUNCH_APP (package), HOME, BACK, RECENTS, NOTIFICATIONS. Never request an action unless the user explicitly asked for it or it is necessary to complete the stated task. The Android app asks for confirmation before execution."
     fun run(baseUrl: String, agentName: String, instructions: String, task: String, provider: String = "Gemini", apiKey: String = ""): Result<String> {
         return try {
             when (provider) {
@@ -27,7 +27,7 @@ object AgentApiClient {
 
     private fun runGemini(key:String,name:String,instructions:String,task:String):Result<String>{
         val url=URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent")
-        val prompt="You are the agent named \"$name\". Role: $instructions\n\nUser task:\n$task\n\nAnswer directly and honestly."
+        val prompt="You are the agent named \"$name\". Role: $instructions\n\nUser task:\n$task\n\nAnswer directly and honestly." + ACTION_PROTOCOL
         val body=JSONObject().put("contents",JSONArray().put(JSONObject().put("parts",JSONArray().put(JSONObject().put("text",prompt))))).toString()
         return post(url,body,key){json->json.optJSONArray("candidates")?.optJSONObject(0)?.optJSONObject("content")?.optJSONArray("parts")?.optJSONObject(0)?.optString("text").orEmpty()}
     }
