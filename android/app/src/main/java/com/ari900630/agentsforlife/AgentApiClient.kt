@@ -7,20 +7,15 @@ import org.json.JSONObject
 
 object AgentApiClient {
     private const val ACTION_PROTOCOL = "If the task explicitly asks you to control the Android device, you may request actions using markers like [[DEVICE_ACTION:{\\\"type\\\":\\\"HOME\\\"}]]. Allowed types: OPEN_SETTINGS (wifi, bluetooth, sound, display, accessibility), CALL (number), OPEN_URL (http/https), LAUNCH_APP (package), HOME, BACK, RECENTS, NOTIFICATIONS. Never request an action unless the user explicitly asked for it or it is necessary to complete the stated task. The Android app asks for confirmation before execution."
-    fun run(baseUrl: String, agentName: String, instructions: String, task: String, provider: String = "Gemini", apiKey: String = "", model: String = ""): Result<String> {
+
+    fun run(baseUrl: String, agentName: String, instructions: String, task: String, provider: String = "Gemini", apiKey: String = "", model: String = "", backendProvider: String = provider): Result<String> {
         return try {
             when (provider) {
-                "Gemini" -> if (apiKey.isNotBlank()) {
-                    runGemini(apiKey, agentName, instructions, task, model)
-                } else {
-                    Result.failure(IllegalStateException("חסר מפתח Gemini API. אין צורך בשרת. הוסף מפתח חינמי בהגדרות."))
-                }
-                "OpenRouter" -> if (apiKey.isNotBlank()) {
-                    runOpenRouter(apiKey, agentName, instructions, task, model)
-                } else {
-                    Result.failure(IllegalStateException("חסר מפתח OpenRouter. אין צורך בשרת. הוסף מפתח בהגדרות."))
-                }
-                "Server" -> runServer(baseUrl, agentName, instructions, task, model, provider)
+                "Gemini" -> if (apiKey.isNotBlank()) runGemini(apiKey, agentName, instructions, task, model)
+                else Result.failure(IllegalStateException("חסר מפתח Gemini API. אין צורך בשרת. הוסף מפתח חינמי בהגדרות."))
+                "OpenRouter" -> if (apiKey.isNotBlank()) runOpenRouter(apiKey, agentName, instructions, task, model)
+                else Result.failure(IllegalStateException("חסר מפתח OpenRouter. אין צורך בשרת. הוסף מפתח בהגדרות."))
+                "Server" -> runServer(baseUrl, agentName, instructions, task, model, backendProvider)
                 else -> Result.failure(IllegalStateException("ספק AI לא מוכר"))
             }
         } catch (e: Exception) { Result.failure(e) }
@@ -42,7 +37,7 @@ object AgentApiClient {
     }
 
     private fun runServer(base:String,name:String,instructions:String,task:String,model:String,provider:String):Result<String>{
-        if(base.isBlank()) return Result.failure(IllegalStateException("בחר Gemini או OpenRouter והזן מפתח API חינמי, או הגדר כתובת שרת."))
+        if(base.isBlank()) return Result.failure(IllegalStateException("הגדר כתובת שרת AI בהגדרות. מפתח Groq נשאר בשרת ואינו נשמר באפליקציה."))
         val body=JSONObject().apply{put("agent",JSONObject().put("name",name).put("instructions",instructions).put("webSearch",false));put("task",task);put("model",model);put("provider",provider)}.toString()
         return post(URL(base.trimEnd('/')+"/api/run"),body){json->if(json.optBoolean("ok"))json.optString("output") else throw IllegalStateException(json.optString("error","שגיאה בהפעלת הסוכן"))}
     }
