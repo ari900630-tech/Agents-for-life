@@ -123,22 +123,33 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val agents=AgentStore.load(this).ifEmpty{AgentStore.seedTemplates(this);AgentStore.load(this)}
         val spinner=Spinner(this)
         spinner.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,agents.map{it.name})
-        content.addView(spinner,layoutParams(0,0,10,0))
+        content.addView(spinner,layoutParams(0,0,8,0))
+        val modelSpinner=Spinner(this)
+        val modelOptions=mutableListOf("Groq — openai/gpt-oss-120b","Groq — openai/gpt-oss-20b","Groq — groq/compound-mini","OpenRouter — openrouter/free","Gemini — gemini-2.5-flash-lite")
+        modelSpinner.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,modelOptions)
+        content.addView(modelSpinner,layoutParams(0,0,10,0))
         val task=EditText(this).apply{hint="כתוב כאן לסוכן...";setHintTextColor(Color.rgb(150,155,165));setTextColor(ink);minLines=5;gravity=48;background=rounded(card,14f);setPadding(16,12,16,12)}
         content.addView(task,layoutParams(0,0,10,0))
         val result=text("התשובה תופיע כאן.",15f,ink).apply{setPadding(16,16,16,16);background=rounded(card,16f)}
         content.addView(result,layoutParams(0,0,12,0))
         content.addView(cardButton("שלח לסוכן","הפעל את הסוכן שבחרת"){
             val a=agents[spinner.selectedItemPosition]
-            val provider=prefs.getString("ai_provider","Gemini") ?: "Gemini"
             val key=prefs.getString("ai_key","") ?: ""
+            val selected=modelSpinner.selectedItem?.toString().orEmpty()
+            val provider=when {
+                selected.startsWith("Groq") -> "Groq"
+                selected.startsWith("OpenRouter") -> "OpenRouter"
+                selected.startsWith("Gemini") -> "Gemini"
+                else -> prefs.getString("ai_provider","Server") ?: "Server"
+            }
+            val model=selected.substringAfter(" — ","").trim()
             val request=task.text.toString().trim()
             if(request.isEmpty()){result.text="כתוב משימה לסוכן.";return@cardButton}
-            if(provider!="Server" && key.isEmpty()){result.text="פתח הגדרות והוסף מפתח API חינמי. אין צורך בשרת.";return@cardButton}
-            if(provider=="Server" && prefs.getString("agent_server","").orEmpty().isBlank()){result.text="בחר שרת עצמי רק אם יש לך שרת AI.";return@cardButton}
+            if(provider!="Server" && key.isEmpty()){result.text="המפתח של הספק חסר בהגדרות.";return@cardButton}
+            if(provider=="Server" && prefs.getString("agent_server","").orEmpty().isBlank()){result.text="הגדר כתובת שרת AI בהגדרות.";return@cardButton}
             result.text="מפעיל את " + a.name + "..."
             Thread{
-                val r=AgentApiClient.run(prefs.getString("agent_server","").orEmpty(),a.name,a.instructions,request,provider,key)
+                val r=AgentApiClient.run(prefs.getString("agent_server","").orEmpty(),a.name,a.instructions,request,provider,key,model)
                 runOnUiThread{r.fold({answer->AgentActionBridge.offerActions(this,answer){result.text=it}},{e->result.text="שגיאה: " + e.message})}
             }.start()
         })
