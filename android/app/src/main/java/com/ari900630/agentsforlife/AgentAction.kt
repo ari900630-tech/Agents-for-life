@@ -5,7 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 
-/** Safe device actions exposed to agents through user-visible Android settings and intents. */
+/** Allow-listed device actions. Destructive or sensitive actions are intentionally not exposed. */
 object AgentAction {
     fun openSettings(context: Context, action: String): Boolean {
         val intent = when (action) {
