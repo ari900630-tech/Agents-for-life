@@ -16,3 +16,39 @@ jobs:
       - run: npm install
       - run: node --check server.js
       - run: node --check public/app.js
+
+      - name: Verify Groq API secret and model access
+        if: ${{ secrets.GROQ_API_KEY != '' }}
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          set -euo pipefail
+          curl -fsS https://api.groq.com/openai/v1/models \
+            -H "Authorization: Bearer ${GROQ_API_KEY}" \
+            -H "Content-Type: application/json" > /tmp/groq-models.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const data = JSON.parse(fs.readFileSync('/tmp/groq-models.json', 'utf8'));
+          const ids = (data.data || []).map(x => x.id).filter(Boolean);
+          if (!ids.length) throw new Error('Groq returned no models');
+          console.log('Groq authentication OK. Active models returned:', ids.length);
+          console.log(ids.join('\n'));
+          NODE
+
+      - name: Verify Groq chat completion
+        if: ${{ secrets.GROQ_API_KEY != '' }}
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          set -euo pipefail
+          curl -fsS https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer ${GROQ_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"model":"openai/gpt-oss-20b","messages":[{"role":"user","content":"Reply with exactly: GROQ_OK"}],"max_tokens":8}' > /tmp/groq-chat.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const data = JSON.parse(fs.readFileSync('/tmp/groq-chat.json', 'utf8'));
+          const text = data.choices?.[0]?.message?.content || '';
+          if (!text) throw new Error('Groq chat completion returned no text');
+          console.log('Groq chat completion OK:', text.trim());
+          NODE
