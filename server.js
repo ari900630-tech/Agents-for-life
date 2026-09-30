@@ -10,6 +10,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const port = process.env.PORT || 3000;
 const openRouterModel = process.env.OPENROUTER_MODEL || 'openrouter/free';
+const groqModel = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
 const geminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
 const ollamaUrl = (process.env.OLLAMA_URL || 'http://127.0.0.1:11434').replace(/\/$/, '');
 const ollamaModel = process.env.OLLAMA_MODEL || 'gemma4';
@@ -19,7 +20,8 @@ function providers() {
     process.env.OPENROUTER_API_KEY && 'OpenRouter Free',
     process.env.GEMINI_API_KEY && 'Google Gemini Free',
     process.env.OLLAMA_URL && 'Ollama Local',
-    process.env.OPENAI_API_KEY && 'OpenAI'
+    process.env.OPENAI_API_KEY && 'OpenAI',
+    process.env.GROQ_API_KEY && 'Groq'
   ].filter(Boolean);
 }
 
@@ -64,6 +66,15 @@ async function runOllama(prompt) {
   return data?.message?.content || '';
 }
 
+async function runGroq(prompt) {
+  const client = new OpenAI({ apiKey: process.env.GROQ_API_KEY, baseURL: 'https://api.groq.com/openai/v1' });
+  const response = await client.chat.completions.create({
+    model: groqModel,
+    messages: [{ role: 'user', content: prompt }]
+  });
+  return response.choices?.[0]?.message?.content || '';
+}
+
 async function runOpenAI(prompt, webSearch) {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const tools = webSearch ? [{ type: 'web_search' }] : [];
@@ -87,6 +98,7 @@ app.post('/api/run', async (req, res) => {
   if (process.env.GEMINI_API_KEY) attempts.push(['Google Gemini Free', () => runGemini(prompt)]);
   if (process.env.OLLAMA_URL) attempts.push(['Ollama Local', () => runOllama(prompt)]);
   if (process.env.OPENAI_API_KEY) attempts.push(['OpenAI', () => runOpenAI(prompt, agent.webSearch)]);
+  if (process.env.GROQ_API_KEY) attempts.push(['Groq', () => runGroq(prompt)]);
 
   if (!attempts.length) {
     return res.status(503).json({ error: 'לא הוגדר ספק AI. הוסף OPENROUTER_API_KEY או GEMINI_API_KEY, או הגדר OLLAMA_URL למודל מקומי.' });
