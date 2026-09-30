@@ -128,6 +128,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val modelOptions=mutableListOf("Groq — openai/gpt-oss-120b","Groq — openai/gpt-oss-20b","Groq — groq/compound-mini","OpenRouter — openrouter/free","Gemini — gemini-2.5-flash-lite")
         modelSpinner.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,modelOptions)
         content.addView(modelSpinner,layoutParams(0,0,10,0))
+        val configuredServer=prefs.getString("agent_server","").orEmpty()
+        loadModelsFromServer(configuredServer,modelSpinner)
         val task=EditText(this).apply{hint="כתוב כאן לסוכן...";setHintTextColor(Color.rgb(150,155,165));setTextColor(ink);minLines=5;gravity=48;background=rounded(card,14f);setPadding(16,12,16,12)}
         content.addView(task,layoutParams(0,0,10,0))
         val result=text("התשובה תופיע כאן.",15f,ink).apply{setPadding(16,16,16,16);background=rounded(card,16f)}
@@ -212,6 +214,29 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun speak(value:String){if(::tts.isInitialized)tts.speak(value,TextToSpeech.QUEUE_FLUSH,null,"agent-answer")}
+    private fun loadModelsFromServer(base:String, spinner:Spinner){
+        if(base.isBlank()) return
+        Thread{
+            try{
+                val c=java.net.URL(base.trimEnd('/')+"/api/models").openConnection() as java.net.HttpURLConnection
+                c.requestMethod="GET";c.connectTimeout=10000;c.readTimeout=15000
+                val raw=(if(c.responseCode in 200..299)c.inputStream else c.errorStream)?.bufferedReader()?.use{it.readText()}.orEmpty()
+                val arr=org.json.JSONObject(raw).optJSONArray("models") ?: return@Thread
+                val labels=mutableListOf<String>()
+                for(i in 0 until arr.length()){
+                    val o=arr.optJSONObject(i) ?: continue
+                    val provider=o.optString("provider")
+                    val id=o.optString("id")
+                    if(id.isNotBlank()) labels.add(provider+" — "+id)
+                }
+                if(labels.isNotEmpty()) runOnUiThread{
+                    spinner.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,labels)
+                    Toast.makeText(this,"נטענו "+labels.size+" מודלים",Toast.LENGTH_SHORT).show()
+                }
+            }catch(_:Exception){}
+        }.start()
+    }
+
 
     private fun showSettings(){
         content.removeAllViews()
