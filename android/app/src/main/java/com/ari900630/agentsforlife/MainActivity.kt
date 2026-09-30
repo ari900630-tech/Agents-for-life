@@ -184,7 +184,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 Thread{
                     val r=AgentApiClient.run(base,a.name,a.instructions,spoken,provider,key)
                     runOnUiThread{r.fold(
-                        {answer->transcript.text="אתה: " + spoken + "\n\n" + a.name + ": " + answer;speak(answer)},
+                        {answer->AgentActionBridge.offerActions(this@MainActivity,answer){clean->transcript.text="אתה: " + spoken + "\n\n" + a.name + ": " + clean;speak(clean)}},
                         {err->transcript.text="שגיאה: " + err.message}
                     )}
                 }.start()
