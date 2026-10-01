@@ -28,6 +28,8 @@ jobs:
           base64 -d icon_base64.txt > app/src/main/res/drawable-nodpi/ic_launcher_agents_image.webp
           test -s app/src/main/res/drawable-nodpi/ic_launcher_agents_image.webp
           file app/src/main/res/drawable-nodpi/ic_launcher_agents_image.webp
+          mkdir -p app/src/main/res/mipmap-anydpi-v26
+          cp app/src/main/res/drawable-nodpi/ic_launcher_agents_image.webp app/src/main/res/mipmap-anydpi-v26/ic_launcher.webp
 
       - name: Setup Java 17
         uses: actions/setup-java@v5
