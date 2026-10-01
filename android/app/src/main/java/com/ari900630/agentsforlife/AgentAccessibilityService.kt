@@ -43,7 +43,19 @@ class AgentAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
-        tts = TextToSpeech(this) { if (it == TextToSpeech.SUCCESS) tts?.language = Locale("he", "IL") }
+    }
+
+    private fun ensureTts() {
+        if (tts != null) return
+        runCatching {
+            tts = TextToSpeech(this) { result ->
+                if (result == TextToSpeech.SUCCESS) {
+                    runCatching { tts?.language = Locale("he", "IL") }
+                }
+            }
+        }.onFailure {
+            android.util.Log.e("AgentsForLife", "Service TTS init failed", it)
+        }
     }
 
     override fun onDestroy() {
@@ -279,7 +291,10 @@ class AgentAccessibilityService : AccessibilityService() {
     }
 
     private fun speak(text: String) {
-        if (text.isNotBlank()) tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "agent-overlay")
+        if (text.isBlank()) return
+        ensureTts()
+        runCatching { tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "agent-overlay") }
+            .onFailure { android.util.Log.e("AgentsForLife", "Service TTS speak failed", it) }
     }
 
     fun installFromPlayStore(packageName: String, appLabel: String = packageName): Boolean {
