@@ -218,26 +218,22 @@ class MainActivity : Activity() {
             setOnClickListener { showModelPicker() }
         }, layoutParams(0, 0, 10, 8))
 
+        val task = EditText(this).apply {
+            hint = "כתוב הודעה…"; setHintTextColor(Color.rgb(159, 169, 205)); setTextColor(ink); textSize = 16f
+            minLines = 2; maxLines = 5; gravity = Gravity.TOP or Gravity.RIGHT
+            background = rounded(surface, 22f, Color.rgb(69, 91, 120)); setPadding(18, 14, 18, 14); setSingleLine(false)
+        }
+
         val suggestions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        suggestions.addView(suggestionChip("שאל אותי משהו") { taskHint = "שאל אותי משהו" }, weightParams())
+        suggestions.addView(suggestionChip("שאל אותי משהו") { task.requestFocus() }, weightParams())
         suggestions.addView(Space(this), LinearLayout.LayoutParams(8, 1))
         suggestions.addView(suggestionChip("הסתכל על המסך") { showVisionInfo() }, weightParams())
         content.addView(suggestions, layoutParams(0, 0, 10, 0))
-
-        chatMessagesBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 4, 0, 8) }
-        content.addView(chatMessagesBox, layoutParams(0, 0, 8, 0))
-        renderChatMessages(session)
-
-        var taskHint = ""
-        val task = EditText(this).apply {
-            hint = "כתוב הודעה…"; setHintTextColor(Color.rgb(110, 116, 135)); setTextColor(ink); textSize = 16f
-            minLines = 2; maxLines = 5; gravity = Gravity.TOP or Gravity.RIGHT
-            background = rounded(surface, 22f, Color.rgb(205, 208, 225)); setPadding(18, 14, 18, 14); setSingleLine(false)
-        }
         content.addView(task, layoutParams(0, 0, 10, 0))
+
         val orb = createOrb("מוכן לשיחה", true)
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         actions.addView(iconButton("＋") { showVisionInfo() }, LinearLayout.LayoutParams(52, 52))
