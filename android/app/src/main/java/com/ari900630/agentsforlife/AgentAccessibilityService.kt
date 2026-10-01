@@ -361,6 +361,9 @@ class AgentAccessibilityService : AccessibilityService() {
             return true
         }
         fun stopLivePreview() { instance?.stopLivePreview() }
+        fun instanceReceiveVoiceResult(text: String) { instance?.receiveVoiceResult(text) }
+        fun instanceReceiveVoiceError(message: String) { instance?.receiveVoiceError(message) }
+        fun instanceReceiveVoiceStatus(message: String) { instance?.statusText?.post { instance?.statusText?.text = message } }
         fun installFromPlayStore(packageName: String, appLabel: String = packageName): Boolean =
             instance?.installFromPlayStore(packageName, appLabel) == true
     }
