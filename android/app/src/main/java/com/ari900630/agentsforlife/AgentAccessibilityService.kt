@@ -19,6 +19,7 @@ class AgentAccessibilityService : AccessibilityService() {
     private var preview: ImageView? = null
     private var previewContainer: LinearLayout? = null
     private var live = false
+    private val wm by lazy { getSystemService(WindowManager::class.java) }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -69,7 +70,7 @@ class AgentAccessibilityService : AccessibilityService() {
             x = 12
             y = 80
         }
-        runCatching { windowManager.addView(box, params) }.onSuccess {
+        runCatching { wm.addView(box, params) }.onSuccess {
             preview = image
             previewContainer = box
         }
@@ -106,7 +107,7 @@ class AgentAccessibilityService : AccessibilityService() {
         live = false
         handler.removeCallbacksAndMessages(null)
         preview = null
-        previewContainer?.let { runCatching { windowManager.removeView(it) } }
+        previewContainer?.let { runCatching { wm.removeView(it) } }
         previewContainer = null
     }
 
