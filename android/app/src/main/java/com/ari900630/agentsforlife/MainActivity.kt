@@ -26,12 +26,12 @@ class MainActivity : Activity() {
     private val prefs by lazy { getSharedPreferences("agents_settings", MODE_PRIVATE) }
     private val defaultServerUrl = "https://agents-for-life.onrender.com"
 
-    private val bg = Color.rgb(249, 249, 253)
-    private val surface = Color.WHITE
-    private val primary = Color.rgb(107, 106, 211)
-    private val secondary = Color.rgb(151, 160, 239)
-    private val ink = Color.rgb(35, 31, 42)
-    private val muted = Color.rgb(118, 116, 130)
+    private val bg = Color.rgb(8, 10, 18)
+    private val surface = Color.rgb(20, 23, 32)
+    private val primary = Color.rgb(110, 102, 255)
+    private val secondary = Color.rgb(92, 178, 255)
+    private val ink = Color.rgb(245, 246, 250)
+    private val muted = Color.rgb(157, 163, 180)
     private var speechRecognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
 
@@ -65,7 +65,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(10, 8, 10, 8)
-            background = rounded(Color.rgb(232, 231, 241), 26f, Color.rgb(232, 231, 241))
+            background = rounded(Color.rgb(20, 23, 32), 26f, Color.rgb(50, 55, 75))
         }
         nav.addView(navButton("בית") { showHome() }, weightParams())
         nav.addView(navButton("סוכנים") { showAgentsDialog() }, weightParams())
@@ -183,7 +183,7 @@ class MainActivity : Activity() {
         status = text("", 14f, ink).apply {
             gravity = Gravity.CENTER
             setPadding(16, 15, 16, 15)
-            background = rounded(surface, 18f, Color.rgb(229, 228, 239))
+            background = rounded(surface, 18f, Color.rgb(50, 55, 75))
         }
         content.addView(status)
         refreshStatus()
@@ -195,34 +195,70 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        top.addView(text("שיחה חדשה", 27f, ink).apply { setTypeface(null, Typeface.BOLD) },
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        top.addView(iconButton("＋") { showHome() }, LinearLayout.LayoutParams(52, 52))
-        content.addView(top, layoutParams(0, 0, 12, 0))
-
-        val orbBox = createOrb("מוכן להקשיב", true)
-        content.addView(orbBox, layoutParams(0, 0, 8, 0))
-
-        content.addView(text("AUTO  •  GROQ  •  GPT-OSS-20B", 11f, muted).apply {
+        top.addView(iconButton("‹") { showHome() }, LinearLayout.LayoutParams(48, 48))
+        top.addView(text("צ׳אט", 22f, ink).apply {
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 10)
+            setTypeface(null, Typeface.BOLD)
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        top.addView(iconButton("⋮") { showModelPicker() }, LinearLayout.LayoutParams(48, 48))
+        content.addView(top, layoutParams(0, 0, 10, 0))
+
+        val model = TextView(this).apply {
+            text = "GPT-OSS-20B  •  Groq"
+            textSize = 12f
+            setTextColor(secondary)
+            gravity = Gravity.CENTER
+            setPadding(16, 10, 16, 10)
+            background = rounded(Color.rgb(24, 27, 39), 18f, Color.rgb(50, 55, 75))
+        }
+        content.addView(model, layoutParams(0, 0, 14, 0))
+
+        val orbBox = createOrb("מוכן לשיחה", true)
+        content.addView(orbBox, layoutParams(0, 0, 8, 0))
+        content.addView(text("איך אפשר לעזור?", 25f, ink).apply {
+            gravity = Gravity.CENTER
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 0, 0, 12)
         })
 
+        val suggestions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        listOf("שאל אותי משהו", "הסתכל על המסך").forEach { label ->
+            val b = Button(this).apply {
+                text = label
+                textSize = 12f
+                setTextColor(ink)
+                isAllCaps = false
+                background = rounded(Color.rgb(24, 27, 39), 18f, Color.rgb(50, 55, 75))
+                setOnClickListener {
+                    if (label.contains("המסך")) showVisionInfo() else showChat()
+                }
+            }
+            suggestions.addView(b, LinearLayout.LayoutParams(0, 48, 1f).apply {
+                setMargins(4, 0, 4, 0)
+            })
+        }
+        content.addView(suggestions, layoutParams(0, 0, 12, 0))
+
         val task = EditText(this).apply {
-            hint = "מה אתה רוצה שהסוכן יעשה?"
-            setHintTextColor(Color.rgb(160, 158, 170))
+            hint = "כתוב הודעה…"
+            setHintTextColor(Color.rgb(110, 116, 135))
             setTextColor(ink)
             textSize = 16f
-            minLines = 5
+            minLines = 2
+            maxLines = 5
             gravity = Gravity.TOP or Gravity.RIGHT
-            background = rounded(surface, 20f, Color.rgb(230, 229, 238))
-            setPadding(18, 16, 18, 16)
+            background = rounded(Color.rgb(20, 23, 32), 22f, Color.rgb(50, 55, 75))
+            setPadding(18, 14, 18, 14)
+            setSingleLine(false)
         }
         content.addView(task, layoutParams(0, 0, 10, 0))
 
         val result = text("התשובה של הסוכן תופיע כאן.", 15f, ink).apply {
-            setPadding(18, 17, 18, 17)
-            background = rounded(surface, 20f, Color.rgb(230, 229, 238))
+            setPadding(18, 16, 18, 16)
+            background = rounded(Color.rgb(20, 23, 32), 20f, Color.rgb(50, 55, 75))
         }
         content.addView(result, layoutParams(0, 0, 10, 0))
 
@@ -230,12 +266,54 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        actions.addView(primaryButton("שלח לסוכן") { runAgent(task, result, orbBox) },
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        actions.addView(Space(this), LinearLayout.LayoutParams(10, 1))
+        actions.addView(iconButton("＋") { showVisionInfo() }, LinearLayout.LayoutParams(52, 52))
+        actions.addView(Space(this), LinearLayout.LayoutParams(8, 1))
+        actions.addView(primaryButton("שלח") { runAgent(task, result, orbBox) },
+            LinearLayout.LayoutParams(0, 56, 1f))
+        actions.addView(Space(this), LinearLayout.LayoutParams(8, 1))
         actions.addView(iconButton("🎙") { startVoiceInput(task, result, orbBox) },
             LinearLayout.LayoutParams(58, 58))
         content.addView(actions)
+    }
+
+    private fun showModelPicker() {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(20, 8, 20, 8)
+            setBackgroundColor(Color.rgb(8, 10, 18))
+        }
+        box.addView(text("בחר מודל", 22f, ink).apply {
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 8, 0, 12)
+        })
+        val models = listOf(
+            "GPT-OSS-20B" to "שיחה מהירה וחכמה",
+            "Llama 3.3 70B" to "מודל כללי מתקדם",
+            "Mixtral" to "מהיר למשימות טקסט"
+        )
+        models.forEach { (name, desc) ->
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(16, 14, 16, 14)
+                background = rounded(Color.rgb(20, 23, 32), 18f, Color.rgb(50, 55, 75))
+                setOnClickListener {
+                    Toast.makeText(this@MainActivity, "נבחר: $name", Toast.LENGTH_SHORT).show()
+                }
+                addView(text(name, 16f, ink).apply { setTypeface(null, Typeface.BOLD) })
+                addView(text(desc, 12f, muted).apply { setPadding(0, 4, 0, 0) })
+            }
+            box.addView(card, layoutParams(0, 0, 8, 0))
+        }
+        AlertDialog.Builder(this).setView(box).setNegativeButton("סגור", null).show()
+    }
+
+    private fun showVisionInfo() {
+        AlertDialog.Builder(this)
+            .setTitle("Vision — ראיית מסך")
+            .setMessage("הסוכן יכול לעבוד עם תצוגת המסך דרך שירות הנגישות לאחר שאישרת את ההרשאה.")
+            .setPositiveButton("פתח הרשאות") { _, _ -> showPermissionSetup() }
+            .setNegativeButton("סגור", null)
+            .show()
     }
 
     private fun runAgent(task: EditText, result: TextView, orb: View) {
@@ -329,7 +407,7 @@ class MainActivity : Activity() {
             setTextColor(ink)
             setSingleLine()
             setText(prefs.getString("agent_server", defaultServerUrl))
-            background = rounded(surface, 16f, Color.rgb(230, 229, 238))
+            background = rounded(surface, 16f, Color.rgb(50, 55, 75))
             setPadding(16, 12, 16, 12)
         }
         content.addView(endpoint, layoutParams(0, 0, 10, 0))
@@ -395,18 +473,18 @@ class MainActivity : Activity() {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 intArrayOf(
-                    Color.rgb(214, 214, 246),
-                    Color.rgb(151, 160, 239),
-                    Color.rgb(107, 106, 211),
-                    Color.rgb(86, 63, 60)
+                    Color.rgb(75, 120, 255),
+                    Color.rgb(122, 86, 255),
+                    Color.rgb(61, 207, 255),
+                    Color.rgb(86, 63, 180)
                 )
             ).apply {
                 shape = GradientDrawable.OVAL
-                setStroke(2, Color.rgb(214, 214, 246))
+                setStroke(2, Color.rgb(111, 145, 255))
             }
             elevation = 10f
         }
-        val size = (if (active) 150 else 132) * resources.displayMetrics.density / 3f
+        val size = (if (active) 178 else 150) * resources.displayMetrics.density
         box.addView(orb, LinearLayout.LayoutParams(size.toInt(), size.toInt()))
         box.addView(text(label, 13f, muted).apply {
             gravity = Gravity.CENTER
@@ -435,7 +513,7 @@ class MainActivity : Activity() {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
         setPadding(10, 15, 10, 15)
-        background = rounded(surface, 18f, Color.rgb(230, 229, 238))
+        background = rounded(surface, 18f, Color.rgb(50, 55, 75))
         setOnClickListener { action() }
         addView(text(t, 16f, ink).apply { gravity = Gravity.CENTER; setTypeface(null, Typeface.BOLD) })
         addView(text(d, 12f, muted).apply { gravity = Gravity.CENTER; setPadding(0, 4, 0, 0) })
