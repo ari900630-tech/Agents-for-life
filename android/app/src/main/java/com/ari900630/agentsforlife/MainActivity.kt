@@ -195,91 +195,129 @@ class MainActivity : Activity() {
         refreshStatus()
     }
 
-    private fun showChat() {
+    private var currentChatId: String? = null
+    private var chatMessagesBox: LinearLayout? = null
+
+    private fun showChat(chatId: String? = currentChatId) {
+        var session = chatId?.let { ChatStore.find(this, it) }
+        if (session == null) session = ChatStore.create(this)
+        currentChatId = session.id
         content.removeAllViews()
-        val top = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        top.addView(iconButton("‹") { showHome() }, LinearLayout.LayoutParams(48, 48))
-        top.addView(text("צ׳אט", 22f, ink).apply {
-            gravity = Gravity.CENTER
-            setTypeface(null, Typeface.BOLD)
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        top.addView(iconButton("⋮") { showModelPicker() }, LinearLayout.LayoutParams(48, 48))
-        content.addView(top, layoutParams(0, 0, 10, 0))
 
-        val model = TextView(this).apply {
-            text = "GPT-OSS-20B  •  Groq"
-            textSize = 12f
-            setTextColor(secondary)
-            gravity = Gravity.CENTER
-            setPadding(16, 10, 16, 10)
-            background = rounded(Color.rgb(24, 27, 39), 18f, Color.rgb(50, 55, 75))
-        }
-        content.addView(model, layoutParams(0, 0, 14, 0))
+        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        top.addView(iconButton("☰") { showChatHistory() }, LinearLayout.LayoutParams(52, 52))
+        top.addView(text(session.title, 20f, ink).apply { gravity = Gravity.CENTER; setTypeface(null, Typeface.BOLD); maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        top.addView(iconButton("＋") { startNewChat() }, LinearLayout.LayoutParams(52, 52))
+        content.addView(top, layoutParams(0, 0, 8, 0))
 
-        val orbBox = createOrb("מוכן לשיחה", true)
-        content.addView(orbBox, layoutParams(0, 0, 8, 0))
-        content.addView(text("איך אפשר לעזור?", 25f, ink).apply {
-            gravity = Gravity.CENTER
-            setTypeface(null, Typeface.BOLD)
-            setPadding(0, 0, 0, 12)
-        })
+        content.addView(text("GPT-OSS-20B  •  Groq", 12f, secondary).apply {
+            gravity = Gravity.CENTER; setPadding(16, 9, 16, 9)
+            background = rounded(Color.rgb(238, 240, 250), 18f, Color.rgb(205, 208, 225))
+        }, layoutParams(0, 0, 10, 0))
 
-        val suggestions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-        }
-        listOf("שאל אותי משהו", "הסתכל על המסך").forEach { label ->
-            val b = Button(this).apply {
-                text = label
-                textSize = 12f
-                setTextColor(ink)
-                isAllCaps = false
-                background = rounded(Color.rgb(24, 27, 39), 18f, Color.rgb(50, 55, 75))
-                setOnClickListener {
-                    if (label.contains("המסך")) showVisionInfo() else showChat()
-                }
-            }
-            suggestions.addView(b, LinearLayout.LayoutParams(0, 48, 1f).apply {
-                setMargins(4, 0, 4, 0)
-            })
-        }
-        content.addView(suggestions, layoutParams(0, 0, 12, 0))
+        chatMessagesBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 4, 0, 8) }
+        content.addView(chatMessagesBox, layoutParams(0, 0, 8, 0))
+        renderChatMessages(session)
 
         val task = EditText(this).apply {
-            hint = "כתוב הודעה…"
-            setHintTextColor(Color.rgb(110, 116, 135))
-            setTextColor(ink)
-            textSize = 16f
-            minLines = 2
-            maxLines = 5
-            gravity = Gravity.TOP or Gravity.RIGHT
-            background = rounded(Color.rgb(20, 23, 32), 22f, Color.rgb(50, 55, 75))
-            setPadding(18, 14, 18, 14)
-            setSingleLine(false)
+            hint = "כתוב הודעה…"; setHintTextColor(Color.rgb(110, 116, 135)); setTextColor(ink); textSize = 16f
+            minLines = 2; maxLines = 5; gravity = Gravity.TOP or Gravity.RIGHT
+            background = rounded(surface, 22f, Color.rgb(205, 208, 225)); setPadding(18, 14, 18, 14); setSingleLine(false)
         }
         content.addView(task, layoutParams(0, 0, 10, 0))
-
-        val result = text("התשובה של הסוכן תופיע כאן.", 15f, ink).apply {
-            setPadding(18, 16, 18, 16)
-            background = rounded(Color.rgb(20, 23, 32), 20f, Color.rgb(50, 55, 75))
-        }
-        content.addView(result, layoutParams(0, 0, 10, 0))
-
-        val actions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
+        val orb = createOrb("מוכן לשיחה", true)
+        val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         actions.addView(iconButton("＋") { showVisionInfo() }, LinearLayout.LayoutParams(52, 52))
         actions.addView(Space(this), LinearLayout.LayoutParams(8, 1))
-        actions.addView(primaryButton("שלח") { runAgent(task, result, orbBox) },
-            LinearLayout.LayoutParams(0, 56, 1f))
+        actions.addView(primaryButton("שלח") { sendChatMessage(session!!.id, task, orb) }, LinearLayout.LayoutParams(0, 56, 1f))
         actions.addView(Space(this), LinearLayout.LayoutParams(8, 1))
-        actions.addView(iconButton("🎙") { startVoiceInput(task, result, orbBox) },
-            LinearLayout.LayoutParams(58, 58))
+        actions.addView(iconButton("🎙") { startVoiceInput(task, TextView(this), orb) }, LinearLayout.LayoutParams(58, 58))
         content.addView(actions)
+    }
+
+    private fun renderChatMessages(session: ChatSession) {
+        val box = chatMessagesBox ?: return
+        box.removeAllViews()
+        if (session.messages.isEmpty()) {
+            box.addView(text("שיחה חדשה", 24f, ink).apply { gravity = Gravity.CENTER; setTypeface(null, Typeface.BOLD); setPadding(0, 24, 0, 4) })
+            box.addView(text("כתוב הודעה כדי להתחיל. השיחה תישמר אוטומטית.", 14f, muted).apply { gravity = Gravity.CENTER; setPadding(0, 0, 0, 18) })
+            return
+        }
+        session.messages.forEach { msg ->
+            val bubble = TextView(this).apply {
+                text = msg.text; textSize = 15f; setTextColor(if (msg.role == "user") Color.WHITE else ink)
+                setPadding(16, 13, 16, 13)
+                background = rounded(if (msg.role == "user") primary else surface, 20f, if (msg.role == "user") primary else Color.rgb(220, 222, 232))
+            }
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = if (msg.role == "user") Gravity.END else Gravity.START
+                addView(bubble, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(30, 4, 30, 4) })
+            }
+            box.addView(row)
+        }
+    }
+
+    private fun sendChatMessage(sessionId: String, task: EditText, orb: View) {
+        val request = task.text.toString().trim()
+        if (request.isEmpty()) return
+        ChatStore.addMessage(this, sessionId, "user", request)
+        task.setText("")
+        val agents = AgentStore.load(this).ifEmpty { AgentStore.seedTemplates(this); AgentStore.load(this) }
+        val a = agents.firstOrNull { it.type == "assistant" } ?: agents.firstOrNull()
+        val server = prefs.getString("agent_server", defaultServerUrl).orEmpty()
+        if (a == null || server.isBlank()) return
+        orb.alpha = 0.72f
+        Thread {
+            val r = AgentApiClient.run(server, a.name, a.instructions, request, "Server", "", "openai/gpt-oss-20b", "Groq")
+            runOnUiThread {
+                orb.alpha = 1f
+                r.fold(
+                    { answer -> ChatStore.addMessage(this, sessionId, "assistant", answer); showChat(sessionId); speak(answer) },
+                    { e -> ChatStore.addMessage(this, sessionId, "assistant", "שגיאה: " + (e.message ?: "לא ידועה")); showChat(sessionId) }
+                )
+            }
+        }.start()
+    }
+
+    private fun startNewChat() {
+        val s = ChatStore.create(this)
+        currentChatId = s.id
+        showChat(s.id)
+    }
+
+    private fun showChatHistory() {
+        val sessions = ChatStore.load(this)
+        content.removeAllViews()
+        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        top.addView(iconButton("‹") { showChat() }, LinearLayout.LayoutParams(52, 52))
+        top.addView(text("השיחות שלי", 24f, ink).apply { gravity = Gravity.CENTER; setTypeface(null, Typeface.BOLD) },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        top.addView(iconButton("＋") { startNewChat() }, LinearLayout.LayoutParams(52, 52))
+        content.addView(top, layoutParams(0, 0, 12, 0))
+        if (sessions.isEmpty()) {
+            content.addView(text("אין עדיין שיחות שמורות.", 16f, muted).apply { gravity = Gravity.CENTER; setPadding(0, 40, 0, 0) })
+            return
+        }
+        sessions.forEach { chat ->
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(16, 14, 10, 14)
+                background = rounded(surface, 18f, Color.rgb(220, 222, 232)); setOnClickListener { showChat(chat.id) }
+            }
+            val info = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            info.addView(text(chat.title, 17f, ink).apply { setTypeface(null, Typeface.BOLD) })
+            info.addView(text(if (chat.messages.isEmpty()) "שיחה חדשה" else "\${chat.messages.size} הודעות", 12f, muted).apply { setPadding(0, 4, 0, 0) })
+            card.addView(info, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            card.addView(iconButton("⋮") { showChatActions(chat) }, LinearLayout.LayoutParams(48, 48))
+            content.addView(card, layoutParams(0, 0, 8, 0))
+        }
+    }
+
+    private fun showChatActions(chat: ChatSession) {
+        AlertDialog.Builder(this).setTitle(chat.title)
+            .setItems(arrayOf("פתח שיחה", "מחק שיחה")) { _, which ->
+                if (which == 0) showChat(chat.id) else { ChatStore.delete(this, chat.id); showChatHistory() }
+            }.setNegativeButton("ביטול", null).show()
     }
 
     private fun showModelPicker() {
