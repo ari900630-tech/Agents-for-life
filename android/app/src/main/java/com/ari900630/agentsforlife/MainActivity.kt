@@ -61,12 +61,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
     private fun buildShell() {
         root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(bg) }
-        content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(22,18,22,18) }
+        content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(18,18,18,18) }
         root.addView(ScrollView(this).apply { addView(content) }, LinearLayout.LayoutParams(-1,0,1f))
-        val nav = LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER; setPadding(8,8,8,12); background=rounded(card,24f) }
-        nav.addView(navButton("צ'אט\nעם הסוכנים") { showChat() }, weightParams())
-        nav.addView(navButton("שיחה\nעם הסוכנים") { showVoice() }, weightParams())
-        nav.addView(navButton("הגדרות") { showSettings() }, weightParams())
+        val nav = LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER; setPadding(10,10,10,12); background=rounded(card,26f) }
+        nav.addView(navButton("בית") { showHome() }, weightParams())
+        nav.addView(navButton("סוכנים") { showAgentsDialog() }, weightParams())
+        nav.addView(navButton("צ׳אט") { showChat() }, weightParams())
         root.addView(nav)
         setContentView(root)
     }
@@ -74,96 +74,54 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun showHome() {
         content.removeAllViews()
         content.addView(title("Agents for Life",30f))
-        content.addView(subtitle("מרכז שליטה אישי עם סוכני AI",16f))
-        val hero=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(20,20,20,20);background=gradientCard()}
-        hero.addView(text("סוכנים שעובדים בשבילך",22f,ink).apply{setTypeface(null,android.graphics.Typeface.BOLD)})
-        hero.addView(text("צור, הפעל ונהל סוכני AI למשימות, שיחה ושליטה במכשיר.",14f,muted).apply{setPadding(0,8,0,14)})
-        hero.addView(cardButton("✦ הסוכנים שלי","פתח את מרכז הסוכנים"){showAgentsDialog()})
+        content.addView(subtitle("מרכז סוכנים חכם",15f))
+        val hero=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(22,22,22,22);background=gradientCard()}
+        hero.addView(text("מה המשימה שלך?",25f,ink).apply{setTypeface(null,android.graphics.Typeface.BOLD)})
+        hero.addView(text("אין צורך לבחור סוכן או מודל. כתוב מה אתה רוצה והמערכת מפעילה את הסוכן המתאים.",14f,muted).apply{setPadding(0,8,0,16)})
+        hero.addView(cardButton("✦ התחל משימה","המערכת מטפלת בשאר"){showChat()})
         content.addView(hero,layoutParams(0,0,14,0))
-        status=text("",16f,ink).apply{gravity=Gravity.CENTER;setPadding(18,18,18,18);background=rounded(card,16f)}
-        content.addView(status,layoutParams(0,0,12,0))
         content.addView(section("הסוכנים שלך"))
-        content.addView(cardButton("סוכני AI","10 סוגים מוכנים + יצירה חופשית"){showAgentsDialog()})
-        content.addView(section("שליטה במכשיר"))
-        content.addView(cardButton("Wi‑Fi","פתיחת הגדרות Wi‑Fi של Android"){AgentAction.openSettings(this,"wifi")})
-        content.addView(cardButton("Bluetooth","פתיחת הגדרות Bluetooth של Android"){AgentAction.openSettings(this,"bluetooth")})
-        content.addView(cardButton("צליל","פתיחת הגדרות הצליל של Android"){AgentAction.openSettings(this,"sound")})
-        content.addView(cardButton("תצוגה","פתיחת הגדרות התצוגה של Android"){AgentAction.openSettings(this,"display")})
-        content.addView(cardButton("שירות נגישות","מאפשר לסוכן לנהל אפליקציות לאחר אישור המשתמש"){startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))})
-        content.addView(cardButton("הרשאת אנשי קשר","גישה לאנשי הקשר לפי הרשאת Android"){requestContacts()})
-        content.addView(cardButton("הגדרות והרשאות","פתיחת הגדרות Android של האפליקציה"){startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:" + packageName)))})
-        content.addView(section("פעולות מהירות"))
-        content.addView(cardButton("Wi-Fi","פתיחת הגדרות Wi-Fi"){AgentAction.openSettings(this,"wifi")})
-        content.addView(cardButton("Bluetooth","פתיחת הגדרות Bluetooth"){AgentAction.openSettings(this,"bluetooth")})
-        content.addView(cardButton("צליל ותצוגה","ניהול עוצמת קול ותצוגה"){AgentAction.openSettings(this,"sound")})
-        content.addView(cardButton("אנשי קשר","פתיחת אנשי הקשר"){startActivity(Intent(Intent.ACTION_VIEW,android.net.Uri.parse("content://contacts/people")))})
-        content.addView(cardButton("חיוג","פתיחת לוח החיוג"){startActivity(Intent(Intent.ACTION_DIAL))})
-        content.addView(section("אפליקציות"))
-        content.addView(cardButton("ניהול אפליקציות","חסימה/פתיחה של אפליקציות באמצעות שירות הנגישות"){startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))})
-        getLaunchableApps().forEach { info ->
-            val pkg=info.activityInfo.packageName
-            val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(16,12,16,12);background=rounded(card,16f)}
-            row.addView(text(info.loadLabel(packageManager).toString(),15f,ink),LinearLayout.LayoutParams(0,-2,1f))
-            row.addView(Switch(this).apply{text="חסום";setTextColor(ink);isChecked=isAppBlocked(pkg);setOnCheckedChangeListener{_,b->setAppBlocked(pkg,b)}})
-            row.setOnClickListener { startActivity(packageManager.getLaunchIntentForPackage(pkg) ?: Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:"+pkg))) }
-            content.addView(row,layoutParams(0,0,8,0))
-        }
-        content.addView(section("מספרים חסומים"))
-        val input=EditText(this).apply{hint="מספר לחסימה";setHintTextColor(Color.rgb(150,155,165));setTextColor(ink);setSingleLine();background=rounded(card,14f);setPadding(18,12,18,12)}
-        content.addView(input,layoutParams(0,0,8,0))
-        content.addView(cardButton("חסום מספר","הוסף לרשימת החסימה"){
-            val n=input.text.toString().trim()
-            if(n.isNotEmpty()){addBlockedNumber(n);input.text.clear();Toast.makeText(this,"המספר נוסף",Toast.LENGTH_SHORT).show();showHome()}
-        })
-        prefs.getStringSet("blocked_numbers",emptySet()).orEmpty().sorted().forEach { n ->
-            val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL}
-            row.addView(text(n,15f,ink),LinearLayout.LayoutParams(0,-2,1f))
-            row.addView(Button(this).apply{text="הסר";setOnClickListener{removeBlockedNumber(n);showHome()}})
-            content.addView(row)
-        }
+        content.addView(cardButton("מרכז הסוכנים","סוכני מחקר, כתיבה, תכנות, תכנון, שיווק ועוד"){showAgentsDialog()})
+        content.addView(section("מצב המערכת"))
+        status=text("",15f,ink).apply{gravity=Gravity.CENTER;setPadding(18,18,18,18);background=rounded(card,18f)}
+        content.addView(status,layoutParams(0,0,12,0))
+        content.addView(cardButton("הגדרות שרת","כתובת השרת בלבד — אין מפתחות או בחירת מודל בטלפון"){showServerInfo()})
         refreshStatus()
     }
 
     private fun showChat() {
         content.removeAllViews()
-        content.addView(title("צ'אט עם הסוכנים",27f))
-        content.addView(subtitle("בחר סוכן, כתוב משימה וקבל תשובה.",15f))
-        val agents=AgentStore.load(this).ifEmpty{AgentStore.seedTemplates(this);AgentStore.load(this)}
-        val spinner=Spinner(this)
-        spinner.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,agents.map{it.name})
-        content.addView(spinner,layoutParams(0,0,8,0))
-        val modelSpinner=Spinner(this)
-        val modelOptions=mutableListOf("Groq — openai/gpt-oss-120b","Groq — openai/gpt-oss-20b","Groq — qwen/qwen3.8-27b","Groq — openai/gpt-oss-safeguard-20b","Groq — minimaxai/minimax-m2.7","OpenRouter — openrouter/free","Gemini — gemini-2.5-flash-lite")
-        modelSpinner.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,modelOptions)
-        content.addView(modelSpinner,layoutParams(0,0,10,0))
-        val configuredServer=prefs.getString("agent_server","").orEmpty()
-        loadModelsFromServer(configuredServer,modelSpinner)
-        val task=EditText(this).apply{hint="כתוב כאן לסוכן...";setHintTextColor(Color.rgb(150,155,165));setTextColor(ink);minLines=5;gravity=48;background=rounded(card,14f);setPadding(16,12,16,12)}
+        content.addView(title("משימה חדשה",28f))
+        content.addView(subtitle("הסוכן המתאים נבחר אוטומטית.",15f))
+        val badge=text("AUTO • GROQ • GPT-OSS-20B",13f,muted).apply{setPadding(14,10,14,10);background=rounded(card,14f)}
+        content.addView(badge,layoutParams(0,0,10,0))
+        val task=EditText(this).apply{hint="מה אתה רוצה שהסוכן יעשה?";setHintTextColor(Color.rgb(150,155,165));setTextColor(ink);minLines=7;gravity=48;background=rounded(card,18f);setPadding(18,16,18,16)}
         content.addView(task,layoutParams(0,0,10,0))
-        val result=text("התשובה תופיע כאן.",15f,ink).apply{setPadding(16,16,16,16);background=rounded(card,16f)}
+        val result=text("התשובה תופיע כאן.",15f,ink).apply{setPadding(18,18,18,18);background=rounded(card,18f)}
         content.addView(result,layoutParams(0,0,12,0))
-        content.addView(cardButton("שלח לסוכן","הפעל את הסוכן שבחרת"){
-            val a=agents[spinner.selectedItemPosition]
-            val key=prefs.getString("ai_key","") ?: ""
-            val selected=modelSpinner.selectedItem?.toString().orEmpty()
-            val provider=when {
-                selected.startsWith("Groq") -> "Server"
-                selected.startsWith("OpenRouter") -> "OpenRouter"
-                selected.startsWith("Gemini") -> "Gemini"
-                else -> prefs.getString("ai_provider","Server") ?: "Server"
-            }
-            val model=selected.substringAfter(" — ","").trim()
-            val backendProvider=if(selected.startsWith("Groq")) "Groq" else provider
+        content.addView(cardButton("הפעל סוכן","ללא בחירת סוכן או מודל"){
+            val agents=AgentStore.load(this).ifEmpty{AgentStore.seedTemplates(this);AgentStore.load(this)}
+            val a=agents.firstOrNull{it.type=="assistant"} ?: agents.firstOrNull()
             val request=task.text.toString().trim()
-            if(request.isEmpty()){result.text="כתוב משימה לסוכן.";return@cardButton}
-            if(provider!="Server" && key.isEmpty()){result.text="המפתח של הספק חסר בהגדרות.";return@cardButton}
-            if(provider=="Server" && prefs.getString("agent_server","").orEmpty().isBlank()){result.text="כדי להשתמש ב-Groq יש להגדיר כתובת שרת AI בהגדרות. המפתח נשאר בשרת ואינו נדרש כאן.";return@cardButton}
-            result.text="מפעיל את " + a.name + "..."
+            val server=prefs.getString("agent_server","").orEmpty()
+            if(request.isEmpty()){result.text="כתוב משימה.";return@cardButton}
+            if(a==null){result.text="לא נמצא סוכן.";return@cardButton}
+            if(server.isBlank()){result.text="שרת ה-AI עדיין לא מוגדר באפליקציה.";return@cardButton}
+            result.text="הסוכן עובד…"
             Thread{
-                val r=AgentApiClient.run(prefs.getString("agent_server","").orEmpty(),a.name,a.instructions,request,provider,key,model,backendProvider)
-                runOnUiThread{r.fold({answer->AgentActionBridge.offerActions(this,answer){result.text=it}},{e->result.text="שגיאה: " + e.message})}
+                val r=AgentApiClient.run(server,a.name,a.instructions,request,"Server","", "openai/gpt-oss-20b","Groq")
+                runOnUiThread{r.fold({answer->AgentActionBridge.offerActions(this,answer){result.text=it}},{e->result.text="שגיאה: "+e.message})}
             }.start()
         })
+    }
+
+    private fun showServerInfo(){
+        content.removeAllViews()
+        content.addView(title("חיבור מערכת",27f))
+        content.addView(subtitle("המשתמש לא צריך להגדיר מפתח API או לבחור מודל.",15f))
+        val endpoint=EditText(this).apply{hint="כתובת שרת AI";setHintTextColor(Color.rgb(150,155,165));setTextColor(ink);setSingleLine();setText(prefs.getString("agent_server",""));background=rounded(card,14f);setPadding(16,12,16,12)}
+        content.addView(endpoint,layoutParams(0,0,10,0))
+        content.addView(cardButton("שמור כתובת שרת","זה הדבר היחיד שנדרש מהתקנה"){prefs.edit().putString("agent_server",endpoint.text.toString().trim()).putString("ai_provider","Server").remove("ai_key").apply();Toast.makeText(this,"נשמר — אין צורך במפתח API",Toast.LENGTH_SHORT).show()})
     }
 
     private fun showVoice() {
