@@ -34,6 +34,7 @@ object AgentActionBridge {
             "CALL" -> "פתיחת החייגן למספר: " + action.optString("number")
             "OPEN_URL" -> "פתיחת קישור: " + action.optString("url")
             "LAUNCH_APP" -> "פתיחת אפליקציה: " + action.optString("package")
+            "PLAY_STORE_INSTALL" -> "פתיחת חנות Play והתקנת " + action.optString("app", action.optString("package"))
             "HOME" -> "מעבר למסך הבית"
             "BACK" -> "חזרה"
             "RECENTS" -> "פתיחת האפליקציות האחרונות"
@@ -79,6 +80,7 @@ object AgentActionBridge {
                 context.startActivity(intent)
                 true
             }.getOrDefault(false)
+            "PLAY_STORE_INSTALL" -> AgentAccessibilityService.installFromPlayStore(action.optString("package"), action.optString("app", action.optString("package")))
             "HOME" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.HOME)
             "BACK" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.BACK)
             "RECENTS" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.RECENTS)
