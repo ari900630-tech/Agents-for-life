@@ -26,12 +26,18 @@ class MainActivity : Activity() {
     private val prefs by lazy { getSharedPreferences("agents_settings", MODE_PRIVATE) }
     private val defaultServerUrl = "https://agents-for-life.onrender.com"
 
-    private val bg = Color.rgb(8, 10, 18)
-    private val surface = Color.rgb(20, 23, 32)
-    private val primary = Color.rgb(110, 102, 255)
-    private val secondary = Color.rgb(92, 178, 255)
-    private val ink = Color.rgb(245, 246, 250)
-    private val muted = Color.rgb(157, 163, 180)
+    private val lightMode = prefs.getBoolean("light_mode", true)
+    private val bg = if (lightMode) Color.rgb(247, 248, 252) else Color.rgb(8, 10, 18)
+    private val surface = if (lightMode) Color.WHITE else Color.rgb(20, 23, 32)
+    private val primary = Color.rgb(102, 111, 235)
+    private val secondary = Color.rgb(66, 157, 236)
+    private val ink = if (lightMode) Color.rgb(35, 38, 52) else Color.rgb(245, 246, 250)
+    private val muted = if (lightMode) Color.rgb(105, 111, 130) else Color.rgb(157, 163, 180)
+
+    private fun toggleTheme() {
+        prefs.edit().putBoolean("light_mode", !lightMode).apply()
+        recreate()
+    }
     private var speechRecognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
 
@@ -327,7 +333,6 @@ class MainActivity : Activity() {
 
         result.text = "הסוכן חושב…"
         orb.alpha = 0.72f
-        AgentAccessibilityService.startLivePreview()
         Thread {
             val r = AgentApiClient.run(server, a.name, a.instructions, request, "Server", "", "openai/gpt-oss-20b", "Groq")
             runOnUiThread {
