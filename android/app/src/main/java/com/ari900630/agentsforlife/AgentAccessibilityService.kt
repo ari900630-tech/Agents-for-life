@@ -384,5 +384,7 @@ class AgentAccessibilityService : AccessibilityService() {
             return true
         }
         fun stopLivePreview() { instance?.stopLivePreview() }
+        fun installFromPlayStore(packageName: String, appLabel: String = packageName): Boolean =
+            instance?.installFromPlayStore(packageName, appLabel) == true
     }
 }
