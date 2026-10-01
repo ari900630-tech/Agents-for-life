@@ -288,9 +288,7 @@ class MainActivity : Activity() {
         quick.addView(quickCard("הסוכנים שלי", "נהל סוכנים", "✦") { showAgentsDialog() }, weightParams())
         content.addView(quick, layoutParams(0, 0, 8, 0))
 
-        if (!AgentAccessibilityService.isEnabled()) {
-                addView(text(desc, 11f, muted).apply { gravity = Gravity.CENTER; setPadding(0, 3, 0, 0) })
-        }
+    }
 
     private var currentChatId: String? = null
     private var chatMessagesBox: LinearLayout? = null
@@ -462,7 +460,7 @@ class MainActivity : Activity() {
         val agents = AgentStore.load(this).ifEmpty { AgentStore.seedTemplates(this); AgentStore.load(this) }
         val a = agents.firstOrNull { it.type == "assistant" } ?: agents.firstOrNull()
         val server = prefs.getString("agent_server", defaultServerUrl).orEmpty()
-        if (request.isEmpty()) { result.text = "כתוב משימה."; return }
+        if (request.isEmpty()) { Toast.makeText(this, "כתוב משימה.", Toast.LENGTH_SHORT).show(); return }
         if (a == null) { Toast.makeText(this, "לא נמצא סוכן.", Toast.LENGTH_SHORT).show(); return }
         if (server.isBlank()) { Toast.makeText(this, "שרת ה-AI עדיין לא מוגדר.", Toast.LENGTH_SHORT).show(); return }
 
