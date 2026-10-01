@@ -39,7 +39,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         buildShell()
         tts = TextToSpeech(this) { if (it == TextToSpeech.SUCCESS) tts?.language = Locale("he", "IL") }
-        showHome()
+        if (!prefs.getBoolean("permission_setup_seen", false)) showPermissionSetup() else showHome()
     }
 
     override fun onResume() {
@@ -65,7 +65,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(10, 8, 10, 8)
-            background = rounded(surface, 26f, Color.rgb(232, 231, 241))
+            background = rounded(Color.rgb(232, 231, 241), 26f, Color.rgb(232, 231, 241))
         }
         nav.addView(navButton("בית") { showHome() }, weightParams())
         nav.addView(navButton("סוכנים") { showAgentsDialog() }, weightParams())
@@ -73,6 +73,68 @@ class MainActivity : Activity() {
         root.addView(nav, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
         setContentView(root)
     }
+
+    private fun showPermissionSetup() {
+        content.removeAllViews()
+        content.addView(title("הגדרת Agents for Life", 28f))
+        content.addView(subtitle("לפני השימוש הראשון, אשר את ההרשאות הדרושות לסוכן.", 15f))
+
+        val accessibilityOk = AgentAccessibilityService.isEnabled()
+        val micOk = android.os.Build.VERSION.SDK_INT < 23 ||
+            checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+
+        content.addView(permissionCard(
+            "שליטה במכשיר",
+            if (accessibilityOk) "✓ מאושר" else "נדרש: שירות נגישות Android",
+            accessibilityOk
+        ) {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }, layoutParams(0, 0, 10, 0))
+
+        content.addView(permissionCard(
+            "מיקרופון",
+            if (micOk) "✓ מאושר" else "נדרש לדיבור עם הסוכן",
+            micOk
+        ) {
+            requestMicrophonePermission()
+        }, layoutParams(0, 0, 10, 0))
+
+        content.addView(permissionCard(
+            "חלון הסוכן הצף",
+            "נכלל דרך שירות הנגישות — אין צורך בהרשאת חלון נפרדת",
+            accessibilityOk
+        ) { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
+            layoutParams(0, 0, 10, 0))
+
+        content.addView(primaryButton("אישור וסיום ההגדרה") {
+            prefs.edit().putBoolean("permission_setup_seen", true).apply()
+            showHome()
+        }, layoutParams(0, 12, 0, 10))
+
+        content.addView(cardButton(
+            "בדוק הרשאות שוב",
+            "אם זה עתה אישרת נגישות או מיקרופון, לחץ כאן לעדכון המצב."
+        ) { showPermissionSetup() })
+    }
+
+    private fun requestMicrophonePermission() {
+        if (android.os.Build.VERSION.SDK_INT >= 23 &&
+            checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 701)
+        }
+    }
+
+    private fun permissionCard(title: String, description: String, enabled: Boolean, action: () -> Unit) =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(18, 16, 18, 16)
+            background = rounded(surface, 20f, if (enabled) Color.rgb(190, 220, 198) else Color.rgb(225, 224, 236))
+            setOnClickListener { action() }
+            addView(text(title, 17f, ink).apply { setTypeface(null, Typeface.BOLD) })
+            addView(text(description, 13f, if (enabled) Color.rgb(45, 110, 60) else muted).apply {
+                setPadding(0, 6, 0, 0)
+            })
+        }
 
     private fun showHome() {
         content.removeAllViews()
@@ -104,6 +166,13 @@ class MainActivity : Activity() {
         val start = primaryButton("התחל שיחה") { showChat() }
         content.addView(start, layoutParams(0, 12, 0, 12))
 
+        val permissions = cardButton(
+            "הרשאות ושליטה במכשיר",
+            if (AgentAccessibilityService.isEnabled()) "נגישות פעילה — החלון הצף יכול להופיע מעל האפליקציות"
+            else "יש להפעיל את שירות הנגישות כדי שהסוכן יוכל לפעול במכשיר"
+        ) { showPermissionSetup() }
+        content.addView(permissions, layoutParams(0, 0, 10, 0))
+
         val quick = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         quick.addView(smallCard("סוכנים", "ניהול הסוכנים") { showAgentsDialog() }, weightParams())
         quick.addView(Space(this), LinearLayout.LayoutParams(10, 1))
@@ -122,7 +191,6 @@ class MainActivity : Activity() {
 
     private fun showChat() {
         content.removeAllViews()
-
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -135,11 +203,10 @@ class MainActivity : Activity() {
         val orbBox = createOrb("מוכן להקשיב", true)
         content.addView(orbBox, layoutParams(0, 0, 8, 0))
 
-        val mode = text("AUTO  •  GROQ  •  GPT-OSS-20B", 11f, muted).apply {
+        content.addView(text("AUTO  •  GROQ  •  GPT-OSS-20B", 11f, muted).apply {
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, 10)
-        }
-        content.addView(mode)
+        })
 
         val task = EditText(this).apply {
             hint = "מה אתה רוצה שהסוכן יעשה?"
@@ -163,13 +230,11 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        actions.addView(primaryButton("שלח לסוכן") {
-            runAgent(task, result, orbBox)
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        actions.addView(primaryButton("שלח לסוכן") { runAgent(task, result, orbBox) },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         actions.addView(Space(this), LinearLayout.LayoutParams(10, 1))
-        actions.addView(iconButton("🎙") {
-            startVoiceInput(task, result, orbBox)
-        }, LinearLayout.LayoutParams(58, 58))
+        actions.addView(iconButton("🎙") { startVoiceInput(task, result, orbBox) },
+            LinearLayout.LayoutParams(58, 58))
         content.addView(actions)
     }
 
@@ -190,13 +255,12 @@ class MainActivity : Activity() {
             runOnUiThread {
                 orb.alpha = 1f
                 r.fold(
-                    { answer -> AgentActionBridge.offerActions(this, answer) { result.text = it; speak(it); AgentAccessibilityService.stopLivePreview() } },
-                    { e -> result.text = "שגיאה: " + (e.message ?: "לא ידועה"); speak(result.text.toString()); AgentAccessibilityService.stopLivePreview() }
+                    { answer -> AgentActionBridge.offerActions(this, answer) { result.text = it; speak(it) } },
+                    { e -> result.text = "שגיאה: " + (e.message ?: "לא ידועה"); speak(result.text.toString()) }
                 )
             }
         }.start()
     }
-
 
     private fun startVoiceInput(task: EditText, result: TextView, orb: View) {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
@@ -239,15 +303,18 @@ class MainActivity : Activity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 701 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(this, "המיקרופון אושר. לחץ שוב על המיקרופון כדי לדבר.", Toast.LENGTH_SHORT).show()
+        if (requestCode == 701) {
+            Toast.makeText(
+                this,
+                if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) "המיקרופון אושר." else "המיקרופון לא אושר.",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
     override fun onDestroy() {
         speechRecognizer?.destroy()
         tts?.shutdown()
-        AgentAccessibilityService.stopLivePreview()
         super.onDestroy()
     }
 
@@ -274,8 +341,8 @@ class MainActivity : Activity() {
             refreshStatus()
         }, layoutParams(0, 0, 10, 0))
 
-        content.addView(cardButton("הפעל שליטה במכשיר", "נדרש אישור חד-פעמי בהגדרות נגישות Android") {
-            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        content.addView(cardButton("הרשאות ושליטה במכשיר", "פתיחת מסך ההרשאות של Agents for Life") {
+            showPermissionSetup()
         })
     }
 
@@ -307,8 +374,11 @@ class MainActivity : Activity() {
     private fun refreshStatus() {
         val server = prefs.getString("agent_server", defaultServerUrl).orEmpty()
         if (!::status.isInitialized) return
-        status.text = if (server.isBlank()) "○ שרת AI לא מוגדר\nהיכנס לחיבור מערכת והוסף כתובת שרת"
-        else "● שרת AI מוגדר\nהחיבור מוכן לשימוש"
+        val access = if (AgentAccessibilityService.isEnabled()) "✓ נגישות פעילה" else "○ נגישות לא פעילה"
+        val mic = if (android.os.Build.VERSION.SDK_INT < 23 ||
+            checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) "✓ מיקרופון מאושר" else "○ מיקרופון לא מאושר"
+        status.text = if (server.isBlank()) "$access\n$mic\n○ שרת AI לא מוגדר"
+        else "$access\n$mic\n● שרת AI מוגדר"
     }
 
     private fun createOrb(label: String, active: Boolean): LinearLayout {
