@@ -7,10 +7,7 @@ import android.net.Uri
 import android.provider.Settings
 import org.json.JSONObject
 
-/**
- * Executes the small, explicit action protocol emitted by an agent.
- * Every device action is allow-listed and requires user confirmation.
- */
+/** Explicit, allow-listed device actions. Every action requires user confirmation. */
 object AgentActionBridge {
     private const val PREFIX = "[[DEVICE_ACTION:"
     private const val SUFFIX = "]]"
@@ -24,16 +21,12 @@ object AgentActionBridge {
             onDone?.invoke(response)
             return
         }
-
         val cleaned = response.replace(Regex("\\[\\[DEVICE_ACTION:.*?\\]\\]"), "").trim()
         confirmNext(context, actions, 0, cleaned, onDone)
     }
 
     private fun confirmNext(context: Context, actions: List<JSONObject>, index: Int, text: String, onDone: ((String) -> Unit)?) {
-        if (index >= actions.size) {
-            onDone?.invoke(text)
-            return
-        }
+        if (index >= actions.size) { onDone?.invoke(text); return }
         val action = actions[index]
         val type = action.optString("type")
         val description = when (type) {
@@ -45,15 +38,21 @@ object AgentActionBridge {
             "BACK" -> "חזרה"
             "RECENTS" -> "פתיחת האפליקציות האחרונות"
             "NOTIFICATIONS" -> "פתיחת חלונית ההתראות"
+            "QUICK_SETTINGS" -> "פתיחת ההגדרות המהירות"
+            "POWER_DIALOG" -> "פתיחת תפריט הכיבוי"
+            "LOCK_SCREEN" -> "נעילת המסך"
+            "SCREENSHOT" -> "צילום מסך"
+            "SHARE_TEXT" -> "פתיחת חלון שיתוף"
+            "SMS" -> "פתיחת הודעת SMS מוכנה לשליחה"
+            "EMAIL" -> "פתיחת הודעת דואר מוכנה לשליחה"
+            "MAP" -> "פתיחת מפה"
             else -> "פעולה במכשיר: $type"
         }
 
         AlertDialog.Builder(context)
             .setTitle("אישור פעולה")
             .setMessage(description)
-            .setNegativeButton("ביטול") { _, _ ->
-                confirmNext(context, actions, index + 1, text, onDone)
-            }
+            .setNegativeButton("ביטול") { _, _ -> confirmNext(context, actions, index + 1, text, onDone) }
             .setPositiveButton("אישור") { _, _ ->
                 val result = execute(context, action)
                 val suffix = if (result) "\n✓ בוצע: $description" else "\n✕ לא ניתן לבצע: $description"
@@ -80,9 +79,55 @@ object AgentActionBridge {
                 context.startActivity(intent)
                 true
             }.getOrDefault(false)
-            // Global device navigation requires an accessibility service; this app intentionally uses no special permissions.
-            "HOME", "BACK", "RECENTS", "NOTIFICATIONS" -> false
+            "HOME" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.HOME)
+            "BACK" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.BACK)
+            "RECENTS" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.RECENTS)
+            "NOTIFICATIONS" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.NOTIFICATIONS)
+            "QUICK_SETTINGS" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.QUICK_SETTINGS)
+            "POWER_DIALOG" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.POWER_DIALOG)
+            "LOCK_SCREEN" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.LOCK_SCREEN)
+            "SCREENSHOT" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.SCREENSHOT)
+            "SHARE_TEXT" -> runCatching {
+                val text = action.optString("text")
+                context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text)
+                }, "שיתוף"))
+                true
+            }.getOrDefault(false)
+            "SMS" -> runCatching {
+                val number = action.optString("number")
+                val body = action.optString("body")
+                context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(number))).apply {
+                    putExtra("sms_body", body)
+                })
+                true
+            }.getOrDefault(false)
+            "EMAIL" -> runCatching {
+                val to = action.optString("to")
+                val subject = action.optString("subject")
+                val body = action.optString("body")
+                context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(to))).apply {
+                    putExtra(Intent.EXTRA_SUBJECT, subject); putExtra(Intent.EXTRA_TEXT, body)
+                })
+                true
+            }.getOrDefault(false)
+            "MAP" -> runCatching {
+                val query = action.optString("query")
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(query))))
+                true
+            }.getOrDefault(false)
             else -> false
         }
+    }
+
+    private object AccessibilityServiceAction {
+        const val HOME = 2
+        const val BACK = 1
+        const val RECENTS = 3
+        const val NOTIFICATIONS = 4
+        const val POWER_DIALOG = 6
+        const val QUICK_SETTINGS = 5
+        const val LOCK_SCREEN = 8
+        const val SCREENSHOT = 9
     }
 }
