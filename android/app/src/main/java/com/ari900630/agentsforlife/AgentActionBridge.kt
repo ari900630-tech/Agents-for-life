@@ -80,10 +80,8 @@ object AgentActionBridge {
                 context.startActivity(intent)
                 true
             }.getOrDefault(false)
-            "HOME" -> AgentAccessibilityService.performGlobal(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME)
-            "BACK" -> AgentAccessibilityService.performGlobal(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
-            "RECENTS" -> AgentAccessibilityService.performGlobal(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS)
-            "NOTIFICATIONS" -> AgentAccessibilityService.performGlobal(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS)
+            // Global device navigation requires an accessibility service; this app intentionally uses no special permissions.
+            "HOME", "BACK", "RECENTS", "NOTIFICATIONS" -> false
             else -> false
         }
     }
