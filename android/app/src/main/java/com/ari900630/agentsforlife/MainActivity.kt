@@ -268,10 +268,15 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         content.addView(endpoint,layoutParams(0,0,10,0))
         provider.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{
             override fun onNothingSelected(parent:AdapterView<*>?){}
-            override fun onItemSelected(parent:AdapterView<*>?,view:android.view.View?,position:Int,id:Long){endpoint.visibility=if(position==2)ViewGroup.VISIBLE else ViewGroup.GONE}
+            override fun onItemSelected(parent:AdapterView<*>?,view:android.view.View?,position:Int,id:Long){
+                val server=position==2
+                endpoint.visibility=if(server)ViewGroup.VISIBLE else ViewGroup.GONE
+                apiKey.visibility=if(server)ViewGroup.GONE else ViewGroup.VISIBLE
+            }
         }
+        apiKey.visibility=if(savedProvider=="Server")ViewGroup.GONE else ViewGroup.VISIBLE
         content.addView(cardButton("קבלת מפתח Gemini","פתיחת Google AI Studio ליצירת מפתח API"){startActivity(Intent(Intent.ACTION_VIEW,android.net.Uri.parse("https://aistudio.google.com/apikey")))})
-        content.addView(cardButton("שמור חיבור AI","Gemini ו-OpenRouter עובדים ישירות מהטלפון; שרת נדרש רק לשרת עצמי"){val p=when(provider.selectedItemPosition){1->"OpenRouter";2->"Server";else->"Gemini"};prefs.edit().putString("ai_provider",p).putString("ai_key",apiKey.text.toString().trim()).putString("agent_server",endpoint.text.toString().trim()).apply();Toast.makeText(this,"חיבור ה-AI נשמר",Toast.LENGTH_SHORT).show()})
+        content.addView(cardButton("שמור חיבור AI","בשרת עצמי מפתח Groq נשאר בשרת ואינו נשמר בטלפון"){val p=when(provider.selectedItemPosition){1->"OpenRouter";2->"Server";else->"Gemini"};val edit=prefs.edit().putString("ai_provider",p).putString("agent_server",endpoint.text.toString().trim());if(p=="Server")edit.remove("ai_key")else edit.putString("ai_key",apiKey.text.toString().trim());edit.apply();Toast.makeText(this,if(p=="Server")"חיבור השרת נשמר — אין צורך במפתח בטלפון" else "חיבור ה-AI נשמר",Toast.LENGTH_SHORT).show()})
         content.addView(cardButton("שירות נגישות","פתיחת הגדרות Android"){startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))})
         content.addView(cardButton("הרשאות האפליקציה","פתיחת הרשאות Android"){startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:" + packageName)))})
         content.addView(cardButton("הגדר כעוזר ברירת מחדל","הפעלת Agents for Life כמו Gemini דרך כפתור העוזר של Android"){requestAssistantRole()})
