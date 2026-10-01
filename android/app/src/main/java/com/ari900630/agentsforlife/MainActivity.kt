@@ -84,7 +84,9 @@ class MainActivity : Activity() {
             setTypeface(null, Typeface.BOLD)
         })
         screen.addView(text(
-            "הייתה תקלה בהפעלת האפליקציה.\n\n$message",
+            "הייתה תקלה בהפעלת האפליקציה.
+
+$message",
             15f, Color.rgb(220, 222, 232)
         ).apply {
             gravity = Gravity.CENTER
@@ -637,7 +639,22 @@ class MainActivity : Activity() {
         minHeight = 54
     }
 
-    private fun addSpace(parent: LinearLayout, width: Int) {\n        parent.addView(Space(this), LinearLayout.LayoutParams(width, 1))\n    }\n\n    private fun quickCard(title: String, description: String, icon: String, action: () -> Unit) = LinearLayout(this).apply {\n        orientation = LinearLayout.VERTICAL\n        gravity = Gravity.CENTER\n        setPadding(12, 14, 12, 14)\n        background = rounded(surface, 18f, Color.rgb(50, 55, 75))\n        setOnClickListener { action() }\n        addView(text(icon, 22f, ink).apply { gravity = Gravity.CENTER })\n        addView(text(title, 15f, ink).apply { gravity = Gravity.CENTER; setTypeface(null, Typeface.BOLD); setPadding(0, 5, 0, 0) })\n        addView(text(description, 12f, muted).apply { gravity = Gravity.CENTER; setPadding(0, 3, 0, 0) })\n    }\n\n    private fun smallCard(t: String, d: String, action: () -> Unit) = LinearLayout(this).apply {
+    private fun addSpace(parent: LinearLayout, width: Int) {
+        parent.addView(Space(this), LinearLayout.LayoutParams(width, 1))
+    }
+
+    private fun quickCard(title: String, description: String, icon: String, action: () -> Unit) = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        gravity = Gravity.CENTER
+        setPadding(12, 14, 12, 14)
+        background = rounded(surface, 18f, Color.rgb(50, 55, 75))
+        setOnClickListener { action() }
+        addView(text(icon, 22f, ink).apply { gravity = Gravity.CENTER })
+        addView(text(title, 15f, ink).apply { gravity = Gravity.CENTER; setTypeface(null, Typeface.BOLD); setPadding(0, 5, 0, 0) })
+        addView(text(description, 12f, muted).apply { gravity = Gravity.CENTER; setPadding(0, 3, 0, 0) })
+    }
+
+    private fun smallCard(t: String, d: String, action: () -> Unit) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
         setPadding(10, 15, 10, 15)
