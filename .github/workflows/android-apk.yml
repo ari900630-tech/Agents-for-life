@@ -62,6 +62,44 @@ jobs:
           ls -lh app/build/outputs/apk/debug/app-debug.apk
           sha256sum app/build/outputs/apk/debug/app-debug.apk
 
+      - name: Prepare stable APK filename
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk Agents-for-Life.apk
+
+      - name: Android 11 startup smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb logcat -c
+            adb shell am force-stop com.ari900630.agentsforlife
+            adb shell monkey -p com.ari900630.agentsforlife 1
+            sleep 8
+            adb logcat -d -v threadtime > android-startup-log.txt
+            if grep -q "FATAL EXCEPTION" android-startup-log.txt; then
+              echo "Android startup crash detected"
+              grep -A40 -B5 "FATAL EXCEPTION" android-startup-log.txt || true
+              exit 1
+            fi
+            adb shell dumpsys activity activities | grep -q "com.ari900630.agentsforlife" || {
+              echo "Launcher activity was not found after startup"
+              tail -n 120 android-startup-log.txt
+              exit 1
+            }
+
+      - name: Upload startup log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agents-for-life-startup-log
+          path: android-startup-log.txt
+          if-no-files-found: ignore
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -79,4 +117,6 @@ jobs:
           make_latest: true
           overwrite_files: true
           fail_on_unmatched_files: true
-          files: android/app/build/outputs/apk/debug/app-debug.apk
+          files: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            Agents-for-Life.apk
