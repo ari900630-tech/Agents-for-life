@@ -1,5 +1,5 @@
 name: Android APK
-run-name: Build Agents for Life APK
+run-name: Build Agents for Life APK • UI
 
 on:
   push:
