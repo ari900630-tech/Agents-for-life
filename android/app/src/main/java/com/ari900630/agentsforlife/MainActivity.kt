@@ -29,8 +29,10 @@ class MainActivity : Activity() {
     private val lightMode = prefs.getBoolean("light_mode", false)
     private val bg = if (lightMode) Color.rgb(247, 248, 252) else Color.rgb(8, 10, 18)
     private val surface = if (lightMode) Color.WHITE else Color.rgb(20, 23, 32)
-    private val primary = Color.rgb(102, 111, 235)
-    private val secondary = Color.rgb(66, 157, 236)
+    private val primary = Color.rgb(30, 55, 182)
+    private val secondary = Color.rgb(80, 144, 173)
+    private val deepBlue = Color.rgb(12, 31, 92)
+    private val panel = if (lightMode) Color.WHITE else Color.rgb(16, 20, 31)
     private val ink = if (lightMode) Color.rgb(35, 38, 52) else Color.rgb(245, 246, 250)
     private val muted = if (lightMode) Color.rgb(105, 111, 130) else Color.rgb(157, 163, 180)
 
@@ -144,52 +146,91 @@ class MainActivity : Activity() {
 
     private fun showHome() {
         content.removeAllViews()
+        content.setPadding(18, 16, 18, 14)
+
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        val brand = text("Agents for Life", 23f, ink).apply { setTypeface(null, Typeface.BOLD) }
-        top.addView(brand, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        top.addView(iconButton("⚙") { showServerInfo() }, LinearLayout.LayoutParams(52, 52))
+        val titleBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        titleBox.addView(text("Agents for Life", 21f, ink).apply { setTypeface(null, Typeface.BOLD) })
+        titleBox.addView(text("AI assistant", 12f, muted))
+        top.addView(titleBox, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        top.addView(iconButton("⚙") { showServerInfo() }, LinearLayout.LayoutParams(50, 50))
         content.addView(top, layoutParams(0, 0, 8, 0))
 
-        content.addView(text("שיחה חכמה עם הסוכן שלך", 15f, muted).apply {
+        content.addView(text("איך אפשר לעזור?", 28f, ink).apply {
+            gravity = Gravity.CENTER
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 10, 0, 2)
+        })
+        content.addView(text("דבר איתי או כתוב מה אתה רוצה שאעשה.", 14f, muted).apply {
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, 8)
         })
 
-        content.addView(createOrb("מוכן לשיחה", false), layoutParams(0, 0, 10, 0))
-        content.addView(text("מה תרצה שאעשה עבורך?", 22f, ink).apply {
+        content.addView(createOrb("מוכן להקשיב", true), layoutParams(0, 0, 4, 0))
+
+        content.addView(text("GPT-OSS-20B  •  Groq  ▾", 13f, Color.rgb(234, 236, 251)).apply {
             gravity = Gravity.CENTER
-            setTypeface(null, Typeface.BOLD)
-            setPadding(0, 4, 0, 6)
+            setPadding(18, 11, 18, 11)
+            background = rounded(deepBlue, 22f, secondary)
+            setOnClickListener { showModelPicker() }
+        }, layoutParams(0, 2, 10, 2))
+
+        val task = EditText(this).apply {
+            hint = "כתוב הודעה…"
+            setHintTextColor(Color.rgb(159, 169, 205))
+            setTextColor(ink)
+            textSize = 16f
+            minLines = 2
+            maxLines = 4
+            gravity = Gravity.TOP or Gravity.RIGHT
+            background = rounded(panel, 22f, Color.rgb(69, 91, 120))
+            setPadding(18, 15, 18, 15)
+            setSingleLine(false)
+        }
+        content.addView(task, layoutParams(0, 0, 8, 0))
+
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        actions.addView(iconButton("＋") { showVisionInfo() }, LinearLayout.LayoutParams(52, 52))
+        actions.addView(Space(this), LinearLayout.LayoutParams(8, 1))
+        actions.addView(primaryButton("שלח  →") {
+            val orb = content.findViewWithTag<View>("home_orb") ?: task
+            runAgent(task, TextView(this@MainActivity), orb)
+        }, LinearLayout.LayoutParams(0, 56, 1f))
+        actions.addView(Space(this), LinearLayout.LayoutParams(8, 1))
+        actions.addView(iconButton("●") {
+            startVoiceInput(task, TextView(this@MainActivity), content.findViewWithTag<View>("home_orb") ?: task)
+        }, LinearLayout.LayoutParams(58, 58))
+        content.addView(actions, layoutParams(0, 0, 10, 0))
+
+        val suggestions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        suggestions.addView(suggestionChip("שאל אותי משהו") { task.requestFocus() }, weightParams())
+        suggestions.addView(Space(this), LinearLayout.LayoutParams(8, 1))
+        suggestions.addView(suggestionChip("הסתכל על המסך") { showVisionInfo() }, weightParams())
+        content.addView(suggestions, layoutParams(0, 0, 10, 0))
+
+        if (!AgentAccessibilityService.isEnabled()) {
+            content.addView(cardButton(
+                "הפעל שליטה במכשיר",
+                "נדרשת הרשאת נגישות כדי שהסוכן יוכל לבצע פעולות בטלפון."
+            ) { showPermissionSetup() }, layoutParams(0, 0, 8, 0))
+        }
+
+        content.addView(text("מצב", 13f, muted).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, 2, 0, 3)
         })
-        content.addView(text("כתוב משימה או עבור לצ׳אט כדי להתחיל.", 14f, muted).apply {
+        status = text("", 12f, muted).apply {
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 16)
-        })
-
-        val start = primaryButton("התחל שיחה") { showChat() }
-        content.addView(start, layoutParams(0, 12, 0, 12))
-
-        val permissions = cardButton(
-            "הרשאות ושליטה במכשיר",
-            if (AgentAccessibilityService.isEnabled()) "נגישות פעילה — החלון הצף יכול להופיע מעל האפליקציות"
-            else "יש להפעיל את שירות הנגישות כדי שהסוכן יוכל לפעול במכשיר"
-        ) { showPermissionSetup() }
-        content.addView(permissions, layoutParams(0, 0, 10, 0))
-
-        val quick = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        quick.addView(smallCard("סוכנים", "ניהול הסוכנים") { showAgentsDialog() }, weightParams())
-        quick.addView(Space(this), LinearLayout.LayoutParams(10, 1))
-        quick.addView(smallCard("שרת", "מצב החיבור") { showServerInfo() }, weightParams())
-        content.addView(quick, layoutParams(0, 8, 0, 0))
-
-        content.addView(section("מצב המערכת"))
-        status = text("", 14f, ink).apply {
-            gravity = Gravity.CENTER
-            setPadding(16, 15, 16, 15)
-            background = rounded(surface, 18f, Color.rgb(50, 55, 75))
+            setPadding(12, 6, 12, 8)
         }
         content.addView(status)
         refreshStatus()
@@ -527,6 +568,7 @@ class MainActivity : Activity() {
             setPadding(0, 4, 0, 4)
         }
         val orb = TextView(this).apply {
+            tag = "home_orb"
             text = "✦"
             textSize = 48f
             gravity = Gravity.CENTER
@@ -583,7 +625,7 @@ class MainActivity : Activity() {
     private fun cardButton(t: String, d: String, action: () -> Unit) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(18, 14, 18, 14)
-        background = rounded(surface, 18f, Color.rgb(230, 229, 238))
+        background = rounded(panel, 18f, Color.rgb(50, 55, 75))
         setOnClickListener { action() }
         addView(text(t, 17f, ink).apply { setTypeface(null, Typeface.BOLD) })
         addView(text(d, 13f, muted).apply { setPadding(0, 5, 0, 0) })
@@ -592,17 +634,17 @@ class MainActivity : Activity() {
     private fun iconButton(label: String, action: () -> Unit) = Button(this).apply {
         text = label
         textSize = 20f
-        setTextColor(primary)
+        setTextColor(Color.rgb(234, 236, 251))
         isAllCaps = false
-        background = rounded(surface, 18f, Color.rgb(230, 229, 238))
+        background = rounded(panel, 18f, Color.rgb(50, 55, 75))
         setOnClickListener { action() }
         minHeight = 48
     }
 
     private fun navButton(label: String, action: () -> Unit) = Button(this).apply {
         text = label
-        setTextColor(primary)
-        textSize = 13f
+        setTextColor(Color.rgb(159, 169, 205))
+        textSize = 12f
         isAllCaps = false
         setOnClickListener { action() }
         setBackgroundColor(Color.TRANSPARENT)
