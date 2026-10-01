@@ -44,7 +44,6 @@ class AgentAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         instance = this
         tts = TextToSpeech(this) { if (it == TextToSpeech.SUCCESS) tts?.language = Locale("he", "IL") }
-        startLivePreview()
     }
 
     override fun onDestroy() {
@@ -155,13 +154,13 @@ class AgentAccessibilityService : AccessibilityService() {
                 setStroke(2, Color.rgb(107, 106, 211))
             }
             addView(top)
-            addView(image, LinearLayout.LayoutParams(-1, 300))
+            addView(image, LinearLayout.LayoutParams(-1, 0, 1f))
             addView(statusText, LinearLayout.LayoutParams(-1, 30))
             addView(controls)
         }
 
         val params = WindowManager.LayoutParams(
-            330, 480,
+            dp(230), WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
@@ -194,63 +193,39 @@ class AgentAccessibilityService : AccessibilityService() {
 
     private fun toggleVoice() {
         if (listening) {
-            speechRecognizer?.stopListening()
             listening = false
-            statusText?.text = "מעבד את הדיבור…"
+            speechRecognizer?.cancel()
+            statusText?.text = "מפסיק להקשיב…"
             return
         }
         if (android.os.Build.VERSION.SDK_INT >= 23 &&
             checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            statusText?.text = "פתח את האפליקציה ואשר מיקרופון"
-            val intent = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            statusText?.text = "יש לאשר מיקרופון פעם אחת בהגדרות"
+            val intent = Intent(this, VoiceCaptureActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(intent)
             return
         }
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            statusText?.text = "זיהוי דיבור אינו זמין במכשיר"
+        listening = true
+        statusText?.text = "מקשיב לך…"
+        val intent = Intent(this, VoiceCaptureActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
+    }
+
+    fun receiveVoiceResult(text: String) {
+        listening = false
+        if (text.isBlank()) {
+            statusText?.text = "לא התקבל טקסט"
             return
         }
-        speechRecognizer?.destroy()
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
-        speechRecognizer?.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) { statusText?.text = "מקשיב לך…" }
-            override fun onBeginningOfSpeech() { statusText?.text = "מקשיב…" }
-            override fun onRmsChanged(rmsdB: Float) {
-                preview?.scaleX = 1f + (rmsdB.coerceIn(0f, 10f) / 60f)
-                preview?.scaleY = preview?.scaleX ?: 1f
-            }
-            override fun onEndOfSpeech() {
-                listening = false
-                preview?.scaleX = 1f
-                preview?.scaleY = 1f
-                statusText?.text = "מעבד…"
-            }
-            override fun onError(error: Int) {
-                listening = false
-                statusText?.text = "לא הצלחתי להבין. נסה שוב."
-            }
-            override fun onResults(results: Bundle?) {
-                listening = false
-                val heard = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
-                if (heard.isBlank()) {
-                    statusText?.text = "לא התקבל טקסט"
-                    return
-                }
-                inputText?.setText(heard)
-                sendOverlayTask()
-            }
-            override fun onBufferReceived(buffer: ByteArray?) = Unit
-            override fun onEvent(eventType: Int, params: Bundle?) = Unit
-            override fun onPartialResults(partialResults: Bundle?) = Unit
-        })
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "he-IL")
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-        }
-        listening = true
-        speechRecognizer?.startListening(intent)
-        statusText?.text = "מקשיב לך…"
+        inputText?.setText(text)
+        sendOverlayTask()
+    }
+
+    fun receiveVoiceError(message: String) {
+        listening = false
+        statusText?.text = message
     }
 
     private fun sendOverlayTask() {
@@ -296,6 +271,8 @@ class AgentAccessibilityService : AccessibilityService() {
             }
         }.start()
     }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt().coerceAtLeast(1)
 
     private fun runOnServiceThread(action: () -> Unit) {
         handler.post(action)
