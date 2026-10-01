@@ -157,7 +157,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             val request=task.text.toString().trim()
             if(request.isEmpty()){result.text="כתוב משימה לסוכן.";return@cardButton}
             if(provider!="Server" && key.isEmpty()){result.text="המפתח של הספק חסר בהגדרות.";return@cardButton}
-            if(provider=="Server" && prefs.getString("agent_server","").orEmpty().isBlank()){result.text="כדי להשתמש במודלי Groq יש להגדיר כתובת שרת AI בהגדרות.";return@cardButton}
+            if(provider=="Server" && prefs.getString("agent_server","").orEmpty().isBlank()){result.text="כדי להשתמש ב-Groq יש להגדיר כתובת שרת AI בהגדרות. המפתח נשאר בשרת ואינו נדרש כאן.";return@cardButton}
             result.text="מפעיל את " + a.name + "..."
             Thread{
                 val r=AgentApiClient.run(prefs.getString("agent_server","").orEmpty(),a.name,a.instructions,request,provider,key,model,backendProvider)
