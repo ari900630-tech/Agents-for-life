@@ -20,6 +20,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install provided app icon
+        working-directory: android
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/res/drawable-nodpi
+          base64 -d icon_base64.txt > app/src/main/res/drawable-nodpi/ic_launcher_agents_image.webp
+          test -s app/src/main/res/drawable-nodpi/ic_launcher_agents_image.webp
+          file app/src/main/res/drawable-nodpi/ic_launcher_agents_image.webp
+
       - name: Setup Java 17
         uses: actions/setup-java@v5
         with:
