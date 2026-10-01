@@ -81,16 +81,20 @@ jobs:
             adb shell monkey -p com.ari900630.agentsforlife 1
             sleep 8
             adb logcat -d -v threadtime > android-startup-log.txt
+
             if grep -q "FATAL EXCEPTION" android-startup-log.txt; then
               echo "Android startup crash detected"
               grep -A40 -B5 "FATAL EXCEPTION" android-startup-log.txt || true
               exit 1
             fi
-            adb shell dumpsys activity activities | grep -q "com.ari900630.agentsforlife" || {
+
+            if ! adb shell dumpsys activity activities | grep -q "com.ari900630.agentsforlife"; then
               echo "Launcher activity was not found after startup"
               tail -n 120 android-startup-log.txt
               exit 1
-            }
+            fi
+
+            echo "Android 11 startup smoke test passed"
 
       - name: Upload startup log
         if: always()
