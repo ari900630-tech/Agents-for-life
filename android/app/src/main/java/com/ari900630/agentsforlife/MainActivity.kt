@@ -3,6 +3,7 @@ package com.ari900630.agentsforlife
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
+import android.provider.Settings
 import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
@@ -93,6 +94,7 @@ class MainActivity : Activity() {
         content.addView(subtitle("המשתמש לא צריך להגדיר מפתח API או לבחור מודל.",15f))
         val endpoint=EditText(this).apply{hint="כתובת שרת AI";setHintTextColor(Color.rgb(150,155,165));setTextColor(ink);setSingleLine();setText(prefs.getString("agent_server",""));background=rounded(card,14f);setPadding(16,12,16,12)}
         content.addView(endpoint,layoutParams(0,0,10,0))
+        content.addView(cardButton("הפעל שליטה במכשיר","נדרש אישור חד-פעמי בהגדרות נגישות Android"){ startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
         content.addView(cardButton("שמור כתובת שרת","זה הדבר היחיד שנדרש מההתקנה"){
             prefs.edit().putString("agent_server",endpoint.text.toString().trim()).putString("ai_provider","Server").remove("ai_key").apply()
             Toast.makeText(this,"נשמר — אין צורך במפתח API",Toast.LENGTH_SHORT).show()
