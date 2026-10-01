@@ -193,11 +193,15 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 val agents=AgentStore.load(this@MainActivity)
                 val a=agents.getOrNull(spinner.selectedItemPosition)
                 val base=prefs.getString("agent_server","").orEmpty()
-                val provider=prefs.getString("ai_provider","Gemini") ?: "Gemini"
+                val serverBase=prefs.getString("agent_server","").orEmpty()
+                val useServer=serverBase.isNotBlank()
+                val provider=if(useServer) "Server" else (prefs.getString("ai_provider","Gemini") ?: "Gemini")
                 val key=prefs.getString("ai_key","") ?: ""
-                if(a==null||(provider!="Server"&&key.isEmpty())||(provider=="Server"&&base.isBlank())){transcript.text="הגדר ספק AI ומפתח API בהגדרות. אין צורך בשרת עבור Gemini או OpenRouter.";return}
+                if(a==null||(provider!="Server"&&key.isEmpty())||(provider=="Server"&&serverBase.isBlank())){transcript.text="פתח הגדרות וחבר את הסוכן ל-AI.";return}
                 Thread{
-                    val r=AgentApiClient.run(base,a.name,a.instructions,spoken,provider,key)
+                    val voiceModel=if(provider=="Server") "openai/gpt-oss-20b" else ""
+                    val voiceBackend=if(provider=="Server") "Groq" else provider
+                    val r=AgentApiClient.run(base,a.name,a.instructions,spoken,provider,key,voiceModel,voiceBackend)
                     runOnUiThread{r.fold(
                         {answer->AgentActionBridge.offerActions(this@MainActivity,answer){clean->transcript.text="אתה: " + spoken + "\n\n" + a.name + ": " + clean;speak(clean)}},
                         {err->transcript.text="שגיאה: " + err.message}
@@ -263,6 +267,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         content.addView(cardButton("שמור חיבור AI","Gemini ו-OpenRouter עובדים ישירות מהטלפון; שרת נדרש רק לשרת עצמי"){val p=when(provider.selectedItemPosition){1->"OpenRouter";2->"Server";else->"Gemini"};prefs.edit().putString("ai_provider",p).putString("ai_key",apiKey.text.toString().trim()).putString("agent_server",endpoint.text.toString().trim()).apply();Toast.makeText(this,"חיבור ה-AI נשמר",Toast.LENGTH_SHORT).show()})
         content.addView(cardButton("שירות נגישות","פתיחת הגדרות Android"){startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))})
         content.addView(cardButton("הרשאות האפליקציה","פתיחת הרשאות Android"){startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:" + packageName)))})
+        content.addView(cardButton("הגדר כעוזר ברירת מחדל","הפעלת Agents for Life כמו Gemini דרך כפתור העוזר של Android"){requestAssistantRole()})
         content.addView(cardButton("ניהול חסימת שיחות","הגדרת Agents for Life כמסנן שיחות"){requestCallScreeningRole()})
         content.addView(cardButton("הגדרות שיחות","פתיחת הגדרות ברירת מחדל"){try{startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))}catch(_:Exception){startActivity(Intent(Settings.ACTION_SETTINGS))}})
         content.addView(cardButton("רענון מצב","בדיקת הרשאות ושירותים"){refreshStatus();Toast.makeText(this,"המצב עודכן",Toast.LENGTH_SHORT).show()})
@@ -288,6 +293,23 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             AgentStore.create(this,name.text.toString(),type.text.toString(),ins.text.toString())
             Toast.makeText(this,"הסוכן נוצר",Toast.LENGTH_SHORT).show()
         }.show()
+    }
+
+    private fun requestAssistantRole(){
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            val roleManager = getSystemService(RoleManager::class.java)
+            if (!roleManager.isRoleAvailable(RoleManager.ROLE_ASSISTANT)) {
+                Toast.makeText(this,"תפקיד העוזר אינו זמין במכשיר",Toast.LENGTH_SHORT).show()
+                return
+            }
+            if (roleManager.isRoleHeld(RoleManager.ROLE_ASSISTANT)) {
+                Toast.makeText(this,"Agents for Life כבר מוגדר כעוזר",Toast.LENGTH_SHORT).show()
+                return
+            }
+            startActivityForResult(roleManager.createRequestRoleIntent(RoleManager.ROLE_ASSISTANT), 902)
+        } else {
+            Toast.makeText(this,"הגדרת עוזר ברירת מחדל זמינה מ-Android 10 ומעלה",Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun requestCallScreeningRole(){
