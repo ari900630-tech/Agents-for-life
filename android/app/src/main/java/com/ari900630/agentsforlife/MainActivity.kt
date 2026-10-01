@@ -16,6 +16,7 @@ class MainActivity : Activity() {
     private lateinit var content: LinearLayout
     private lateinit var status: TextView
     private val prefs by lazy { getSharedPreferences("agents_settings", MODE_PRIVATE) }
+    private val defaultServerUrl = "https://agents-for-life.onrender.com"
     private val bg = Color.rgb(10, 12, 22)
     private val card = Color.rgb(18, 21, 35)
     private val primary = Color.rgb(116, 92, 255)
@@ -76,7 +77,7 @@ class MainActivity : Activity() {
             val agents=AgentStore.load(this).ifEmpty{AgentStore.seedTemplates(this);AgentStore.load(this)}
             val a=agents.firstOrNull{it.type=="assistant"} ?: agents.firstOrNull()
             val request=task.text.toString().trim()
-            val server=prefs.getString("agent_server","").orEmpty()
+            val server=prefs.getString("agent_server",defaultServerUrl).orEmpty()
             if(request.isEmpty()){result.text="כתוב משימה.";return@cardButton}
             if(a==null){result.text="לא נמצא סוכן.";return@cardButton}
             if(server.isBlank()){result.text="שרת ה-AI עדיין לא מוגדר באפליקציה.";return@cardButton}
@@ -92,7 +93,7 @@ class MainActivity : Activity() {
         content.removeAllViews()
         content.addView(title("חיבור מערכת",27f))
         content.addView(subtitle("המשתמש לא צריך להגדיר מפתח API או לבחור מודל.",15f))
-        val endpoint=EditText(this).apply{hint="כתובת שרת AI";setHintTextColor(Color.rgb(150,155,165));setTextColor(ink);setSingleLine();setText(prefs.getString("agent_server",""));background=rounded(card,14f);setPadding(16,12,16,12)}
+        val endpoint=EditText(this).apply{hint="כתובת שרת AI";setHintTextColor(Color.rgb(150,155,165));setTextColor(ink);setSingleLine();setText(prefs.getString("agent_server",defaultServerUrl));background=rounded(card,14f);setPadding(16,12,16,12)}
         content.addView(endpoint,layoutParams(0,0,10,0))
         content.addView(cardButton("הפעל שליטה במכשיר","נדרש אישור חד-פעמי בהגדרות נגישות Android"){ startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
         content.addView(cardButton("שמור כתובת שרת","זה הדבר היחיד שנדרש מההתקנה"){
