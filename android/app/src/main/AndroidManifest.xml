@@ -7,9 +7,6 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
-        <intent>
-            <action android:name="android.speech.RecognitionService" />
-        </intent>
     </queries>
 
     <application
@@ -29,12 +26,5 @@
             </intent-filter>
         </activity>
         <activity android:name=".AgentHubActivity" android:exported="false" />
-        <service android:name=".AgentAccessibilityService" android:exported="false" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
-            <meta-data android:name="android.accessibilityservice" android:resource="@xml/accessibility_service_config" />
-        </service>
-        <service android:name=".AgentCallScreeningService" android:exported="true" android:permission="android.permission.BIND_SCREENING_SERVICE">
-            <intent-filter><action android:name="android.telecom.CallScreeningService" /></intent-filter>
-        </service>
     </application>
 </manifest>
