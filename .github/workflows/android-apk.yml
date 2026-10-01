@@ -71,30 +71,17 @@ jobs:
           api-level: 30
           arch: x86_64
           profile: pixel_2
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          force-avd-creation: true
+          emulator-options: >-
+            -no-window
+            -gpu swiftshader_indirect
+            -no-snapshot
+            -no-snapshot-save
+            -noaudio
+            -no-boot-anim
+            -camera-back none
           disable-animations: true
-          script: |
-            set -eu
-            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-            adb logcat -c
-            adb shell am force-stop com.ari900630.agentsforlife
-            adb shell monkey -p com.ari900630.agentsforlife 1
-            sleep 8
-            adb logcat -d -v threadtime > android-startup-log.txt
-
-            if grep -q "FATAL EXCEPTION" android-startup-log.txt; then
-              echo "Android startup crash detected"
-              grep -A40 -B5 "FATAL EXCEPTION" android-startup-log.txt || true
-              exit 1
-            fi
-
-            if ! adb shell dumpsys activity activities | grep -q "com.ari900630.agentsforlife"; then
-              echo "Launcher activity was not found after startup"
-              tail -n 120 android-startup-log.txt
-              exit 1
-            fi
-
-            echo "Android 11 startup smoke test passed"
+          script: bash android/smoke-test.sh
 
       - name: Upload startup log
         if: always()
