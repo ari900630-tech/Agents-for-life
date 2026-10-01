@@ -45,9 +45,65 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        buildShell()
-        tts = TextToSpeech(this) { if (it == TextToSpeech.SUCCESS) tts?.language = Locale("he", "IL") }
-        if (!prefs.getBoolean("permission_setup_seen", false)) showPermissionSetup() else showHome()
+
+        // Keep startup minimal and fail-safe. A startup exception must not make the
+        // application appear to open and immediately disappear on the phone.
+        try {
+            buildShell()
+            if (!prefs.getBoolean("permission_setup_seen", false)) {
+                showPermissionSetup()
+            } else {
+                showHome()
+            }
+        } catch (t: Throwable) {
+            android.util.Log.e("AgentsForLife", "Startup crash", t)
+            showStartupError(t)
+        }
+    }
+
+    private fun ensureTts() {
+        if (tts != null) return
+        runCatching {
+            tts = TextToSpeech(this) { result ->
+                if (result == TextToSpeech.SUCCESS) {
+                    runCatching { tts?.language = Locale("he", "IL") }
+                }
+            }
+        }.onFailure {
+            android.util.Log.e("AgentsForLife", "TTS init failed", it)
+        }
+    }
+
+    private fun showStartupError(error: Throwable) {
+        val message = error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
+        val screen = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(28, 28, 28, 28)
+            setBackgroundColor(Color.rgb(8, 10, 18))
+        }
+        screen.addView(text("Agents for Life", 26f, Color.WHITE).apply {
+            gravity = Gravity.CENTER
+            setTypeface(null, Typeface.BOLD)
+        })
+        screen.addView(text(
+            "הייתה תקלה בהפעלת האפליקציה.\n\n$message",
+            15f, Color.rgb(220, 222, 232)
+        ).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, 18, 0, 18)
+        })
+        screen.addView(primaryButton("נסה שוב") {
+            recreate()
+        }, LinearLayout.LayoutParams(-1, 56))
+        screen.addView(text(
+            "אם המסך הזה מופיע, האפליקציה נשארת פתוחה כדי שנוכל לזהות את התקלה במקום להיסגר.",
+            12f, Color.rgb(157, 163, 180)
+        ).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, 18, 0, 0)
+        })
+        setContentView(screen)
     }
 
     override fun onResume() {
@@ -468,7 +524,13 @@ class MainActivity : Activity() {
 
     private fun speak(text: String) {
         val clean = text.replace(Regex("\\[\\[DEVICE_ACTION:.*?\\]\\]"), "").trim()
-        if (clean.isNotBlank()) tts?.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "agent-answer")
+        if (clean.isBlank()) return
+        ensureTts()
+        runCatching {
+            tts?.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "agent-answer")
+        }.onFailure {
+            android.util.Log.e("AgentsForLife", "TTS speak failed", it)
+        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
