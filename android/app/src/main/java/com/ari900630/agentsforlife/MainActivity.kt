@@ -84,9 +84,7 @@ class MainActivity : Activity() {
             setTypeface(null, Typeface.BOLD)
         })
         screen.addView(text(
-            "הייתה תקלה בהפעלת האפליקציה.
-
-$message",
+            "הייתה תקלה בהפעלת האפליקציה.\n\n$message",
             15f, Color.rgb(220, 222, 232)
         ).apply {
             gravity = Gravity.CENTER
