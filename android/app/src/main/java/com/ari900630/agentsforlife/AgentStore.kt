@@ -4,12 +4,7 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 
-data class LocalAgent(
-    val id: String,
-    val name: String,
-    val type: String,
-    val instructions: String
-)
+data class LocalAgent(val id: String, val name: String, val type: String, val instructions: String)
 
 object AgentStore {
     private const val PREFS = "agents_store"
@@ -36,12 +31,17 @@ object AgentStore {
     )
 
     fun load(context: Context): MutableList<LocalAgent> {
-        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString(KEY, null) ?: return mutableListOf()
-        val array = JSONArray(raw)
-        return MutableList(array.length()) { i ->
-            val o = array.getJSONObject(i)
-            LocalAgent(o.getString("id"), o.getString("name"), o.getString("type"), o.getString("instructions"))
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null)
+            ?: return mutableListOf()
+        return try {
+            val array = JSONArray(raw)
+            MutableList(array.length()) { i ->
+                val o = array.getJSONObject(i)
+                LocalAgent(o.getString("id"), o.getString("name"), o.getString("type"), o.getString("instructions"))
+            }
+        } catch (_: Exception) {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY).apply()
+            mutableListOf()
         }
     }
 
@@ -55,17 +55,11 @@ object AgentStore {
                 put("instructions", it.instructions)
             })
         }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putString(KEY, array.toString()).apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, array.toString()).apply()
     }
 
     fun create(context: Context, name: String, type: String, instructions: String): LocalAgent {
-        val agent = LocalAgent(
-            System.currentTimeMillis().toString(),
-            name.ifBlank { type },
-            type,
-            instructions
-        )
+        val agent = LocalAgent(System.currentTimeMillis().toString(), name.ifBlank { type }, type, instructions)
         val all = load(context)
         all.add(agent)
         save(context, all)
@@ -74,9 +68,8 @@ object AgentStore {
 
     fun seedTemplates(context: Context) {
         if (load(context).isNotEmpty()) return
-        val agents = templates.mapIndexed { i, pair ->
+        save(context, templates.mapIndexed { i, pair ->
             LocalAgent("template-$i", pair.first, pair.first, pair.second)
-        }
-        save(context, agents)
+        })
     }
 }
