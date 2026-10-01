@@ -7,6 +7,9 @@ import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.view.View
+import android.graphics.Path
+import android.graphics.Rect
+import android.view.accessibility.AccessibilityNodeInfo
 import android.view.WindowManager
 import android.widget.ImageView
 import android.widget.TextView
@@ -90,6 +93,45 @@ class AgentAccessibilityService : AccessibilityService() {
         })
     }
 
+    fun installFromPlayStore(packageName: String, appLabel: String = packageName): Boolean {
+        if (packageName.isBlank()) return false
+        return try {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=" + android.net.Uri.encode(packageName))).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+            handler.postDelayed({ clickPlayStoreInstall(0) }, 1800)
+            true
+        } catch (_: Exception) { false }
+    }
+
+    private fun clickPlayStoreInstall(attempt: Int) {
+        if (attempt > 18) return
+        val root = rootInActiveWindow
+        if (root != null && clickNodeByLabels(root, listOf("התקנה","התקן","Install","INSTALL","עדכון","Update","UPDATE"))) return
+        handler.postDelayed({ clickPlayStoreInstall(attempt + 1) }, 800)
+    }
+
+    private fun clickNodeByLabels(node: AccessibilityNodeInfo, labels: List<String>): Boolean {
+        val text = node.text?.toString()?.trim().orEmpty()
+        val desc = node.contentDescription?.toString()?.trim().orEmpty()
+        if (labels.any { it.equals(text, true) || it.equals(desc, true) }) {
+            if (node.isClickable && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
+            val parent = node.parent
+            if (parent != null && parent.isClickable && parent.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
+            val bounds = Rect(); node.getBoundsInScreen(bounds)
+            if (!bounds.isEmpty && dispatchTap(bounds.centerX().toFloat(), bounds.centerY().toFloat())) return true
+        }
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            if (clickNodeByLabels(child, labels)) return true
+        }
+        return false
+    }
+
+    private fun dispatchTap(x: Float, y: Float): Boolean {
+        val path = Path().apply { moveTo(x, y) }
+        val gesture = android.accessibilityservice.GestureDescription.Builder().addStroke(android.accessibilityservice.GestureDescription.StrokeDescription(path, 0, 80)).build()
+        return dispatchGesture(gesture, null, null)
+    }
     fun startLivePreview() {
         if (live) return
         live = true
