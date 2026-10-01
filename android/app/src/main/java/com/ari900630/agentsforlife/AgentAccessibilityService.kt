@@ -97,7 +97,7 @@ class AgentAccessibilityService : AccessibilityService() {
         inputText = EditText(this).apply {
             hint = "מה לעשות?"
             textSize = 13f
-            singleLine = false
+            setSingleLine(false)
             maxLines = 2
             setPadding(10, 2, 10, 2)
             setTextColor(Color.rgb(35, 31, 42))
