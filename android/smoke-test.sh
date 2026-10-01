@@ -20,7 +20,10 @@ if grep -q "FATAL EXCEPTION" "$LOG_FILE"; then
   exit 1
 fi
 
-if ! adb shell dumpsys activity activities | grep -q "$PACKAGE_NAME"; then
+# Read the complete activity dump before grepping so grep -q cannot close the
+# adb pipe early and cause adb to fail under pipefail.
+ACTIVITY_DUMP="$(adb shell dumpsys activity activities)"
+if ! grep -q "$PACKAGE_NAME" <<< "$ACTIVITY_DUMP"; then
   echo "Launcher activity was not found after startup"
   tail -n 120 "$LOG_FILE"
   exit 1
