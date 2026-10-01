@@ -23,7 +23,6 @@ import android.graphics.drawable.GradientDrawable
 class MainActivity : Activity() {
     private lateinit var root: LinearLayout
     private lateinit var content: LinearLayout
-    private lateinit var status: TextView
     private lateinit var prefs: SharedPreferences
     private val defaultServerUrl = "https://agents-for-life.onrender.com"
 
@@ -52,11 +51,7 @@ class MainActivity : Activity() {
         // application appear to open and immediately disappear on the phone.
         try {
             buildShell()
-            if (!prefs.getBoolean("permission_setup_seen", false)) {
-                showPermissionSetup()
-            } else {
-                showHome()
-            }
+            showHome()
         } catch (t: Throwable) {
             android.util.Log.e("AgentsForLife", "Startup crash", t)
             showStartupError(t)
@@ -110,7 +105,6 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        if (::status.isInitialized) refreshStatus()
     }
 
     private fun buildShell() {
@@ -217,7 +211,6 @@ class MainActivity : Activity() {
         top.addView(brand, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         top.addView(iconButton("☰") { showChatHistory() }, LinearLayout.LayoutParams(48, 48))
         top.addView(Space(this), LinearLayout.LayoutParams(6, 1))
-        top.addView(iconButton("⚙") { showServerInfo() }, LinearLayout.LayoutParams(48, 48))
         content.addView(top)
 
         val hero = LinearLayout(this).apply {
@@ -273,11 +266,11 @@ class MainActivity : Activity() {
         actions.addView(iconButton("＋") { showVisionInfo() }, LinearLayout.LayoutParams(50, 54))
         addSpace(actions, 8)
         actions.addView(primaryButton("שלח  →") {
-            runAgent(task, TextView(this@MainActivity), orb.findViewWithTag("home_orb") ?: orb)
+            runAgent(task, orb.findViewWithTag<View>("home_orb") ?: orb)
         }, LinearLayout.LayoutParams(0, 54, 1f))
         addSpace(actions, 8)
-        actions.addView(iconButton("●") {
-            startVoiceInput(task, TextView(this@MainActivity), orb.findViewWithTag("home_orb") ?: orb)
+        actions.addView(iconButton("🎙") {
+            startVoiceInput(task, orb.findViewWithTag<View>("home_orb") ?: orb)
         }, LinearLayout.LayoutParams(54, 54))
         content.addView(actions, layoutParams(0, 0, 12, 0))
 
@@ -296,38 +289,7 @@ class MainActivity : Activity() {
         content.addView(quick, layoutParams(0, 0, 8, 0))
 
         if (!AgentAccessibilityService.isEnabled()) {
-            content.addView(cardButton(
-                "הפעל שליטה במכשיר",
-                "נדרשת הרשאת נגישות כדי שסוכן יוכל לבצע פעולות בטלפון."
-            ) { showPermissionSetup() }, layoutParams(0, 0, 8, 0))
-        }
-
-        status = text("", 11f, muted).apply {
-            gravity = Gravity.CENTER
-            setPadding(8, 8, 8, 4)
-        }
-        content.addView(status)
-        refreshStatus()
-    }
-
-    private fun addSpace(parent: LinearLayout, width: Int) {
-        parent.addView(Space(this), LinearLayout.LayoutParams(width, 1))
-    }
-
-    private fun quickCard(title: String, desc: String, icon: String, action: () -> Unit) =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(12, 14, 12, 14)
-            background = rounded(panel, 20f, Color.rgb(52, 62, 88))
-            setOnClickListener { action() }
-            addView(text(icon, 22f, Color.rgb(118, 164, 255)).apply { gravity = Gravity.CENTER })
-            addView(text(title, 14f, ink).apply {
-                gravity = Gravity.CENTER
-                setTypeface(null, Typeface.BOLD)
-                setPadding(0, 6, 0, 0)
-            })
-            addView(text(desc, 11f, muted).apply { gravity = Gravity.CENTER; setPadding(0, 3, 0, 0) })
+                addView(text(desc, 11f, muted).apply { gravity = Gravity.CENTER; setPadding(0, 3, 0, 0) })
         }
 
     private var currentChatId: String? = null
@@ -359,14 +321,6 @@ class MainActivity : Activity() {
             background = rounded(surface, 22f, Color.rgb(69, 91, 120)); setPadding(18, 14, 18, 14); setSingleLine(false)
         }
 
-        val suggestions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-        }
-        suggestions.addView(suggestionChip("שאל אותי משהו") { task.requestFocus() }, weightParams())
-        suggestions.addView(Space(this), LinearLayout.LayoutParams(8, 1))
-        suggestions.addView(suggestionChip("הסתכל על המסך") { showVisionInfo() }, weightParams())
-        content.addView(suggestions, layoutParams(0, 0, 10, 0))
         content.addView(task, layoutParams(0, 0, 10, 0))
 
         val orb = createOrb("מוכן לשיחה", true)
@@ -375,7 +329,7 @@ class MainActivity : Activity() {
         actions.addView(Space(this), LinearLayout.LayoutParams(8, 1))
         actions.addView(primaryButton("שלח") { sendChatMessage(session!!.id, task, orb) }, LinearLayout.LayoutParams(0, 56, 1f))
         actions.addView(Space(this), LinearLayout.LayoutParams(8, 1))
-        actions.addView(iconButton("●") { startVoiceInput(task, TextView(this), orb) }, LinearLayout.LayoutParams(64, 64))
+        actions.addView(iconButton("🎙") { startVoiceInput(task, orb) }, LinearLayout.LayoutParams(64, 64))
         content.addView(actions)
     }
 
@@ -503,50 +457,51 @@ class MainActivity : Activity() {
             .show()
     }
 
-    private fun runAgent(task: EditText, result: TextView, orb: View) {
+    private fun runAgent(task: EditText, orb: View) {
         val request = task.text.toString().trim()
         val agents = AgentStore.load(this).ifEmpty { AgentStore.seedTemplates(this); AgentStore.load(this) }
         val a = agents.firstOrNull { it.type == "assistant" } ?: agents.firstOrNull()
         val server = prefs.getString("agent_server", defaultServerUrl).orEmpty()
         if (request.isEmpty()) { result.text = "כתוב משימה."; return }
-        if (a == null) { result.text = "לא נמצא סוכן."; return }
-        if (server.isBlank()) { result.text = "שרת ה-AI עדיין לא מוגדר באפליקציה."; return }
+        if (a == null) { Toast.makeText(this, "לא נמצא סוכן.", Toast.LENGTH_SHORT).show(); return }
+        if (server.isBlank()) { Toast.makeText(this, "שרת ה-AI עדיין לא מוגדר.", Toast.LENGTH_SHORT).show(); return }
 
-        result.text = "הסוכן חושב…"
         orb.alpha = 0.72f
         Thread {
             val r = AgentApiClient.run(server, a.name, a.instructions, request, "Server", "", "openai/gpt-oss-20b", "Groq")
             runOnUiThread {
                 orb.alpha = 1f
                 r.fold(
-                    { answer -> AgentActionBridge.offerActions(this, answer) { result.text = it; speak(it) } },
-                    { e -> result.text = "שגיאה: " + (e.message ?: "לא ידועה"); speak(result.text.toString()) }
+                    { answer -> AgentActionBridge.offerActions(this, answer) { speak(it) } },
+                    { e -> Toast.makeText(this, "שגיאה: " + (e.message ?: "לא ידועה"), Toast.LENGTH_LONG).show() }
                 )
             }
         }.start()
     }
 
-    private fun startVoiceInput(task: EditText, result: TextView, orb: View) {
+    private fun startVoiceInput(task: EditText, orb: View) {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            result.text = "זיהוי דיבור אינו זמין במכשיר."
+            Toast.makeText(this, "זיהוי דיבור אינו זמין במכשיר.", Toast.LENGTH_LONG).show()
             return
         }
         if (android.os.Build.VERSION.SDK_INT >= 23 && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            pendingVoiceTask = task
+            pendingVoiceOrb = orb
             requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 701)
             return
         }
         speechRecognizer?.destroy()
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
         speechRecognizer?.setRecognitionListener(object : android.speech.RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) { result.text = "מקשיב…"; orb.alpha = 1f }
-            override fun onBeginningOfSpeech() { result.text = "מקשיב לך…" }
+            override fun onReadyForSpeech(params: Bundle?) { Toast.makeText(this@MainActivity, "מקשיב…", Toast.LENGTH_SHORT).show(); orb.alpha = 1f }
+            override fun onBeginningOfSpeech() { }
             override fun onRmsChanged(rmsdB: Float) { orb.scaleX = 1f + (rmsdB.coerceIn(0f, 10f) / 35f); orb.scaleY = orb.scaleX }
-            override fun onEndOfSpeech() { orb.scaleX = 1f; orb.scaleY = 1f; result.text = "מעבד את הבקשה…" }
-            override fun onError(error: Int) { orb.scaleX = 1f; orb.scaleY = 1f; result.text = "לא הצלחתי להבין. נסה שוב." }
+            override fun onEndOfSpeech() { orb.scaleX = 1f; orb.scaleY = 1f }
+            override fun onError(error: Int) { orb.scaleX = 1f; orb.scaleY = 1f; Toast.makeText(this@MainActivity, "לא הצלחתי להבין. נסה שוב.", Toast.LENGTH_SHORT).show() }
             override fun onResults(results: Bundle?) {
                 val heard = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
                 task.setText(heard)
-                if (heard.isNotBlank()) runAgent(task, result, orb)
+                if (heard.isNotBlank()) runAgent(task, orb)
             }
             override fun onBufferReceived(buffer: ByteArray?) = Unit
             override fun onEvent(eventType: Int, params: Bundle?) = Unit
@@ -556,9 +511,14 @@ class MainActivity : Activity() {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "he-IL")
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "he-IL")
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
         }
         speechRecognizer?.startListening(intent)
     }
+
+    private var pendingVoiceTask: EditText? = null
+    private var pendingVoiceOrb: View? = null
 
     private fun speak(text: String) {
         val clean = text.replace(Regex("\\[\\[DEVICE_ACTION:.*?\\]\\]"), "").trim()
@@ -573,12 +533,12 @@ class MainActivity : Activity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 701) {
-            Toast.makeText(
-                this,
-                if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) "המיקרופון אושר." else "המיקרופון לא אושר.",
-                Toast.LENGTH_SHORT
-            ).show()
+        if (requestCode == 701 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            val task = pendingVoiceTask
+            val orb = pendingVoiceOrb
+            pendingVoiceTask = null
+            pendingVoiceOrb = null
+            if (task != null && orb != null) startVoiceInput(task, orb)
         }
     }
 
@@ -586,34 +546,6 @@ class MainActivity : Activity() {
         speechRecognizer?.destroy()
         tts?.shutdown()
         super.onDestroy()
-    }
-
-    private fun showServerInfo() {
-        content.removeAllViews()
-        content.addView(title("חיבור מערכת", 27f))
-        content.addView(subtitle("המשתמש לא צריך להגדיר מפתח API או לבחור מודל.", 15f))
-
-        val endpoint = EditText(this).apply {
-            hint = "כתובת שרת AI"
-            setHintTextColor(Color.rgb(160, 158, 170))
-            setTextColor(ink)
-            setSingleLine()
-            setText(prefs.getString("agent_server", defaultServerUrl))
-            background = rounded(surface, 16f, Color.rgb(50, 55, 75))
-            setPadding(16, 12, 16, 12)
-        }
-        content.addView(endpoint, layoutParams(0, 0, 10, 0))
-
-        content.addView(primaryButton("שמור כתובת שרת") {
-            prefs.edit().putString("agent_server", endpoint.text.toString().trim())
-                .putString("ai_provider", "Server").remove("ai_key").apply()
-            Toast.makeText(this, "נשמר — אין צורך במפתח API", Toast.LENGTH_SHORT).show()
-            refreshStatus()
-        }, layoutParams(0, 0, 10, 0))
-
-        content.addView(cardButton("הרשאות ושליטה במכשיר", "פתיחת מסך ההרשאות של Agents for Life") {
-            showPermissionSetup()
-        })
     }
 
     private fun showAgentsDialog() {
@@ -639,16 +571,6 @@ class MainActivity : Activity() {
                 AgentStore.create(this, name.text.toString(), type.text.toString(), ins.text.toString())
                 Toast.makeText(this, "הסוכן נוצר", Toast.LENGTH_SHORT).show()
             }.show()
-    }
-
-    private fun refreshStatus() {
-        val server = prefs.getString("agent_server", defaultServerUrl).orEmpty()
-        if (!::status.isInitialized) return
-        val access = if (AgentAccessibilityService.isEnabled()) "✓ נגישות פעילה" else "○ נגישות לא פעילה"
-        val mic = if (android.os.Build.VERSION.SDK_INT < 23 ||
-            checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) "✓ מיקרופון מאושר" else "○ מיקרופון לא מאושר"
-        status.text = if (server.isBlank()) "$access\n$mic\n○ שרת AI לא מוגדר"
-        else "$access\n$mic\n● שרת AI מוגדר"
     }
 
     private fun suggestionChip(label: String, action: () -> Unit) = TextView(this).apply {
