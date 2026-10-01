@@ -5,6 +5,14 @@
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:statusBarColor">#F7F8FC</item>
         <item name="android:navigationBarColor">#F7F8FC</item>
-        <item name="android:colorAccent">#6674FF</item>\n        <item name="android:windowActionModeOverlay">true</item>\n    </style>\n    <style name="VoiceCaptureTheme" parent="android:style/Theme.Material.Light.NoActionBar">\n        <item name="android:windowIsTranslucent">true</item>\n        <item name="android:windowBackground">@android:color/transparent</item>\n        <item name="android:colorAccent">#6674FF</item>\n        <item name="android:windowNoTitle">true</item>\n        <item name="android:windowDisablePreview">true</item>
+        <item name="android:colorAccent">#6674FF</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+    <style name="VoiceCaptureTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorAccent">#6674FF</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowDisablePreview">true</item>
     </style>
 </resources>
