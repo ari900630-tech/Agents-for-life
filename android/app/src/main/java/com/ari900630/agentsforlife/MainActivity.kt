@@ -12,6 +12,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AlphaAnimation
 import android.widget.*
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
+import android.content.pm.PackageManager
+import java.util.Locale
 import android.graphics.drawable.GradientDrawable
 
 class MainActivity : Activity() {
@@ -27,10 +32,13 @@ class MainActivity : Activity() {
     private val secondary = Color.rgb(151, 160, 239)
     private val ink = Color.rgb(35, 31, 42)
     private val muted = Color.rgb(118, 116, 130)
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var tts: TextToSpeech? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         buildShell()
+        tts = TextToSpeech(this) { if (it == TextToSpeech.SUCCESS) tts?.language = Locale("he", "IL") }
         showHome()
     }
 
@@ -160,7 +168,7 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         actions.addView(Space(this), LinearLayout.LayoutParams(10, 1))
         actions.addView(iconButton("🎙") {
-            Toast.makeText(this, "כפתור הקול מוכן — נדרש אישור מיקרופון להפעלת דיבור.", Toast.LENGTH_SHORT).show()
+            startVoiceInput(task, result, orbBox)
         }, LinearLayout.LayoutParams(58, 58))
         content.addView(actions)
     }
@@ -176,16 +184,71 @@ class MainActivity : Activity() {
 
         result.text = "הסוכן חושב…"
         orb.alpha = 0.72f
+        AgentAccessibilityService.startLivePreview()
         Thread {
             val r = AgentApiClient.run(server, a.name, a.instructions, request, "Server", "", "openai/gpt-oss-20b", "Groq")
             runOnUiThread {
                 orb.alpha = 1f
                 r.fold(
-                    { answer -> AgentActionBridge.offerActions(this, answer) { result.text = it } },
-                    { e -> result.text = "שגיאה: " + (e.message ?: "לא ידועה") }
+                    { answer -> AgentActionBridge.offerActions(this, answer) { result.text = it; speak(it); AgentAccessibilityService.stopLivePreview() } },
+                    { e -> result.text = "שגיאה: " + (e.message ?: "לא ידועה"); speak(result.text.toString()); AgentAccessibilityService.stopLivePreview() }
                 )
             }
         }.start()
+    }
+
+
+    private fun startVoiceInput(task: EditText, result: TextView, orb: View) {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            result.text = "זיהוי דיבור אינו זמין במכשיר."
+            return
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 23 && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 701)
+            return
+        }
+        speechRecognizer?.destroy()
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+        speechRecognizer?.setRecognitionListener(object : android.speech.RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) { result.text = "מקשיב…"; orb.alpha = 1f }
+            override fun onBeginningOfSpeech() { result.text = "מקשיב לך…" }
+            override fun onRmsChanged(rmsdB: Float) { orb.scaleX = 1f + (rmsdB.coerceIn(0f, 10f) / 35f); orb.scaleY = orb.scaleX }
+            override fun onEndOfSpeech() { orb.scaleX = 1f; orb.scaleY = 1f; result.text = "מעבד את הבקשה…" }
+            override fun onError(error: Int) { orb.scaleX = 1f; orb.scaleY = 1f; result.text = "לא הצלחתי להבין. נסה שוב." }
+            override fun onResults(results: Bundle?) {
+                val heard = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+                task.setText(heard)
+                if (heard.isNotBlank()) runAgent(task, result, orb)
+            }
+            override fun onBufferReceived(buffer: ByteArray?) = Unit
+            override fun onEvent(eventType: Int, params: Bundle?) = Unit
+            override fun onPartialResults(partialResults: Bundle?) = Unit
+        })
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "he-IL")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+        }
+        speechRecognizer?.startListening(intent)
+    }
+
+    private fun speak(text: String) {
+        val clean = text.replace(Regex("\\[\\[DEVICE_ACTION:.*?\\]\\]"), "").trim()
+        if (clean.isNotBlank()) tts?.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "agent-answer")
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 701 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "המיקרופון אושר. לחץ שוב על המיקרופון כדי לדבר.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onDestroy() {
+        speechRecognizer?.destroy()
+        tts?.shutdown()
+        AgentAccessibilityService.stopLivePreview()
+        super.onDestroy()
     }
 
     private fun showServerInfo() {
