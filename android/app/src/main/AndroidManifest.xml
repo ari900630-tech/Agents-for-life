@@ -11,8 +11,8 @@
     <application
         android:allowBackup="true"
         android:label="Agents for Life"
-        android:icon="@drawable/ic_launcher_agents"
-        android:roundIcon="@drawable/ic_launcher_agents"
+        android:icon="@drawable/ic_launcher_agents_image"
+        android:roundIcon="@drawable/ic_launcher_agents_image"
         android:theme="@style/AppTheme">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
