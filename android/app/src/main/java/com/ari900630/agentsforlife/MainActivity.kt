@@ -26,7 +26,7 @@ class MainActivity : Activity() {
     private val prefs by lazy { getSharedPreferences("agents_settings", MODE_PRIVATE) }
     private val defaultServerUrl = "https://agents-for-life.onrender.com"
 
-    private val lightMode = prefs.getBoolean("light_mode", true)
+    private val lightMode = prefs.getBoolean("light_mode", false)
     private val bg = if (lightMode) Color.rgb(247, 248, 252) else Color.rgb(8, 10, 18)
     private val surface = if (lightMode) Color.WHITE else Color.rgb(20, 23, 32)
     private val primary = Color.rgb(102, 111, 235)
@@ -211,15 +211,27 @@ class MainActivity : Activity() {
         top.addView(iconButton("＋") { startNewChat() }, LinearLayout.LayoutParams(52, 52))
         content.addView(top, layoutParams(0, 0, 8, 0))
 
-        content.addView(text("GPT-OSS-20B  •  Groq", 12f, secondary).apply {
-            gravity = Gravity.CENTER; setPadding(16, 9, 16, 9)
-            background = rounded(Color.rgb(238, 240, 250), 18f, Color.rgb(205, 208, 225))
-        }, layoutParams(0, 0, 10, 0))
+        content.addView(text("GPT-OSS-20B  •  Groq  ▾", 13f, Color.rgb(234, 236, 251)).apply {
+            gravity = Gravity.CENTER
+            setPadding(18, 10, 18, 10)
+            background = rounded(Color.rgb(12, 31, 92), 22f, Color.rgb(80, 144, 173))
+            setOnClickListener { showModelPicker() }
+        }, layoutParams(0, 0, 10, 8))
+
+        val suggestions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        suggestions.addView(suggestionChip("שאל אותי משהו") { taskHint = "שאל אותי משהו" }, weightParams())
+        suggestions.addView(Space(this), LinearLayout.LayoutParams(8, 1))
+        suggestions.addView(suggestionChip("הסתכל על המסך") { showVisionInfo() }, weightParams())
+        content.addView(suggestions, layoutParams(0, 0, 10, 0))
 
         chatMessagesBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 4, 0, 8) }
         content.addView(chatMessagesBox, layoutParams(0, 0, 8, 0))
         renderChatMessages(session)
 
+        var taskHint = ""
         val task = EditText(this).apply {
             hint = "כתוב הודעה…"; setHintTextColor(Color.rgb(110, 116, 135)); setTextColor(ink); textSize = 16f
             minLines = 2; maxLines = 5; gravity = Gravity.TOP or Gravity.RIGHT
@@ -232,7 +244,7 @@ class MainActivity : Activity() {
         actions.addView(Space(this), LinearLayout.LayoutParams(8, 1))
         actions.addView(primaryButton("שלח") { sendChatMessage(session!!.id, task, orb) }, LinearLayout.LayoutParams(0, 56, 1f))
         actions.addView(Space(this), LinearLayout.LayoutParams(8, 1))
-        actions.addView(iconButton("🎙") { startVoiceInput(task, TextView(this), orb) }, LinearLayout.LayoutParams(58, 58))
+        actions.addView(iconButton("●") { startVoiceInput(task, TextView(this), orb) }, LinearLayout.LayoutParams(64, 64))
         content.addView(actions)
     }
 
@@ -502,6 +514,16 @@ class MainActivity : Activity() {
         else "$access\n$mic\n● שרת AI מוגדר"
     }
 
+    private fun suggestionChip(label: String, action: () -> Unit) = TextView(this).apply {
+        text = label
+        textSize = 12f
+        gravity = Gravity.CENTER
+        setTextColor(Color.rgb(234, 236, 251))
+        setPadding(10, 11, 10, 11)
+        background = rounded(Color.rgb(12, 31, 92), 20f, Color.rgb(69, 105, 150))
+        setOnClickListener { action() }
+    }
+
     private fun createOrb(label: String, active: Boolean): LinearLayout {
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -516,14 +538,14 @@ class MainActivity : Activity() {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 intArrayOf(
-                    Color.rgb(75, 120, 255),
-                    Color.rgb(122, 86, 255),
-                    Color.rgb(61, 207, 255),
-                    Color.rgb(86, 63, 180)
+                    Color.rgb(30, 55, 182),
+                    Color.rgb(12, 31, 92),
+                    Color.rgb(80, 144, 173),
+                    Color.rgb(30, 55, 182)
                 )
             ).apply {
                 shape = GradientDrawable.OVAL
-                setStroke(2, Color.rgb(111, 145, 255))
+                setStroke(2, Color.rgb(80, 144, 173))
             }
             elevation = 10f
         }
