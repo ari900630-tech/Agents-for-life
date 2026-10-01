@@ -35,7 +35,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private val ink = Color.WHITE
     private val muted = Color.rgb(170, 176, 200)
 
-    override fun onProvideAssistContent(outContent: AssistContent) {\n        super.onProvideAssistContent(outContent)\n        outContent.title = "Agents for Life"\n        outContent.webUri = android.net.Uri.parse("https://github.com/ari900630-tech/Agents-for-life")\n    }\n\n    override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onProvideAssistContent(outContent: AssistContent) {
+        super.onProvideAssistContent(outContent)
+        outContent.title = "Agents for Life"
+        outContent.webUri = android.net.Uri.parse("https://github.com/ari900630-tech/Agents-for-life")
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         tts = TextToSpeech(this, this)
         buildShell()
@@ -146,7 +152,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 selected.startsWith("Gemini") -> "Gemini"
                 else -> prefs.getString("ai_provider","Server") ?: "Server"
             }
-            val model=selected.substringAfter(" — ","").trim()\n            val backendProvider=if(selected.startsWith("Groq")) "Groq" else provider
+            val model=selected.substringAfter(" — ","").trim()
+            val backendProvider=if(selected.startsWith("Groq")) "Groq" else provider
             val request=task.text.toString().trim()
             if(request.isEmpty()){result.text="כתוב משימה לסוכן.";return@cardButton}
             if(provider!="Server" && key.isEmpty()){result.text="המפתח של הספק חסר בהגדרות.";return@cardButton}
