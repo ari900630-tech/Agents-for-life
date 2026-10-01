@@ -44,6 +44,7 @@ class AgentAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         instance = this
         tts = TextToSpeech(this) { if (it == TextToSpeech.SUCCESS) tts?.language = Locale("he", "IL") }
+        startLivePreview()
     }
 
     override fun onDestroy() {
@@ -200,7 +201,9 @@ class AgentAccessibilityService : AccessibilityService() {
         }
         if (android.os.Build.VERSION.SDK_INT >= 23 &&
             checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            statusText?.text = "יש לאשר גישה למיקרופון במסך האפליקציה"
+            statusText?.text = "פתח את האפליקציה ואשר מיקרופון"
+            val intent = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
             return
         }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
@@ -278,7 +281,7 @@ class AgentAccessibilityService : AccessibilityService() {
             runOnServiceThread {
                 result.fold(
                     { answer ->
-                        val clean = answer.replace(Regex("\[\[DEVICE_ACTION:.*?\]\]"), "").trim()
+                        val clean = answer.replace(Regex("\\[\\[DEVICE_ACTION:.*?\\]\\]"), "").trim()
                         statusText?.text = if (clean.isBlank()) "בוצע" else clean.take(180)
                         speak(clean)
                         AgentActionBridge.offerActions(this, answer) {
