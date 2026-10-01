@@ -333,7 +333,7 @@ class MainActivity : Activity() {
         textSize = 13f
         isAllCaps = false
         setOnClickListener { action() }
-        background = Color.TRANSPARENT
+        setBackgroundColor(Color.TRANSPARENT)
     }
 
     private fun title(v: String, s: Float) = text(v, s, ink).apply { setTypeface(null, Typeface.BOLD); setPadding(0, 8, 0, 4) }
