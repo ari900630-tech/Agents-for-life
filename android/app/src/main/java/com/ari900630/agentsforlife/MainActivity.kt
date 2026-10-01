@@ -3,6 +3,7 @@ package com.ari900630.agentsforlife
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.SharedPreferences
 import android.provider.Settings
 import android.graphics.Color
 import android.graphics.Typeface
@@ -23,18 +24,18 @@ class MainActivity : Activity() {
     private lateinit var root: LinearLayout
     private lateinit var content: LinearLayout
     private lateinit var status: TextView
-    private val prefs by lazy { getSharedPreferences("agents_settings", MODE_PRIVATE) }
+    private lateinit var prefs: SharedPreferences
     private val defaultServerUrl = "https://agents-for-life.onrender.com"
 
-    private val lightMode = prefs.getBoolean("light_mode", false)
-    private val bg = if (lightMode) Color.rgb(247, 248, 252) else Color.rgb(8, 10, 18)
-    private val surface = if (lightMode) Color.WHITE else Color.rgb(20, 23, 32)
+    private val lightMode get() = prefs.getBoolean("light_mode", false)
+    private val bg get() = if (lightMode) Color.rgb(247, 248, 252) else Color.rgb(8, 10, 18)
+    private val surface get() = if (lightMode) Color.WHITE else Color.rgb(20, 23, 32)
     private val primary = Color.rgb(30, 55, 182)
     private val secondary = Color.rgb(80, 144, 173)
     private val deepBlue = Color.rgb(12, 31, 92)
-    private val panel = if (lightMode) Color.WHITE else Color.rgb(16, 20, 31)
-    private val ink = if (lightMode) Color.rgb(35, 38, 52) else Color.rgb(245, 246, 250)
-    private val muted = if (lightMode) Color.rgb(105, 111, 130) else Color.rgb(157, 163, 180)
+    private val panel get() = if (lightMode) Color.WHITE else Color.rgb(16, 20, 31)
+    private val ink get() = if (lightMode) Color.rgb(35, 38, 52) else Color.rgb(245, 246, 250)
+    private val muted get() = if (lightMode) Color.rgb(105, 111, 130) else Color.rgb(157, 163, 180)
 
     private fun toggleTheme() {
         prefs.edit().putBoolean("light_mode", !lightMode).apply()
@@ -45,6 +46,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        prefs = getSharedPreferences("agents_settings", MODE_PRIVATE)
 
         // Keep startup minimal and fail-safe. A startup exception must not make the
         // application appear to open and immediately disappear on the phone.
