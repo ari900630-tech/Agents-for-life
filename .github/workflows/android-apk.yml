@@ -19,7 +19,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Install provided app icon
         working-directory: android
         run: |
@@ -30,30 +29,24 @@ jobs:
           file app/src/main/res/drawable-nodpi/ic_launcher_agents_image.webp
           mkdir -p app/src/main/res/mipmap-anydpi-v26
           cp app/src/main/res/drawable-nodpi/ic_launcher_agents_image.webp app/src/main/res/mipmap-anydpi-v26/ic_launcher.webp
-
       - name: Setup Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Setup Gradle 8.10
         uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '8.10'
-
       - name: Validate Android project
         working-directory: android
         run: gradle :app:tasks --all --stacktrace --no-daemon
-
       - name: Clean Android build
         working-directory: android
         run: gradle :app:clean --stacktrace --no-daemon
-
       - name: Build debug APK
         working-directory: android
         run: gradle :app:assembleDebug --stacktrace --no-daemon
-
       - name: Verify APK
         working-directory: android
         run: |
@@ -61,41 +54,25 @@ jobs:
           test -s app/build/outputs/apk/debug/app-debug.apk
           ls -lh app/build/outputs/apk/debug/app-debug.apk
           sha256sum app/build/outputs/apk/debug/app-debug.apk
-
       - name: Prepare stable APK filename
         run: cp android/app/build/outputs/apk/debug/app-debug.apk Agents-for-Life.apk
-
       - name: Android 11 startup smoke test
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
           arch: x86_64
           profile: pixel_2
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          force-avd-creation: true
+          emulator-options: >-
+            -no-window
+            -gpu swiftshader_indirect
+            -no-snapshot
+            -no-snapshot-save
+            -noaudio
+            -no-boot-anim
+            -camera-back none
           disable-animations: true
-          script: |
-            set -eu
-            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-            adb logcat -c
-            adb shell am force-stop com.ari900630.agentsforlife
-            adb shell monkey -p com.ari900630.agentsforlife 1
-            sleep 8
-            adb logcat -d -v threadtime > android-startup-log.txt
-
-            if grep -q "FATAL EXCEPTION" android-startup-log.txt; then
-              echo "Android startup crash detected"
-              grep -A40 -B5 "FATAL EXCEPTION" android-startup-log.txt || true
-              exit 1
-            fi
-
-            if ! adb shell dumpsys activity activities | grep -q "com.ari900630.agentsforlife"; then
-              echo "Launcher activity was not found after startup"
-              tail -n 120 android-startup-log.txt
-              exit 1
-            fi
-
-            echo "Android 11 startup smoke test passed"
-
+          script: bash android/smoke-test.sh
       - name: Upload startup log
         if: always()
         uses: actions/upload-artifact@v4
@@ -103,7 +80,6 @@ jobs:
           name: agents-for-life-startup-log
           path: android-startup-log.txt
           if-no-files-found: ignore
-
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -111,7 +87,6 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           overwrite: true
-
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
