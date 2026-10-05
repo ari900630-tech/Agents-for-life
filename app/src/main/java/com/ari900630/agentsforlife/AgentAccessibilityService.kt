@@ -467,6 +467,43 @@ class AgentAccessibilityService : AccessibilityService() {
         return dispatchGesture(gesture, null, null)
     }
 
+    fun openNotificationsAndClick(target: String, longClick: Boolean = false): Boolean {
+        if (!performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)) return false
+        handler.postDelayed({
+            clickTextOrDescription(target, longClick)
+        }, 700)
+        return true
+    }
+
+    fun openQuickSettingsAndClick(target: String, longClick: Boolean = false): Boolean {
+        if (!performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS)) return false
+        handler.postDelayed({
+            clickTextOrDescription(target, longClick)
+        }, 700)
+        return true
+    }
+
+    private fun clickTextOrDescription(target: String, longClick: Boolean): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val labels = target.split("|").map { it.trim() }.filter { it.isNotEmpty() }
+        val node = findNodeByLabels(root, labels) ?: return false
+        val bounds = Rect().also { node.getBoundsInScreen(it) }
+        if (longClick) {
+            if (node.isLongClickable) return node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)
+            return dispatchLongPress(bounds.centerX().toFloat(), bounds.centerY().toFloat())
+        }
+        if (node.isClickable) return node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        return dispatchTap(bounds.centerX().toFloat(), bounds.centerY().toFloat())
+    }
+
+    private fun dispatchTap(x: Float, y: Float): Boolean {
+        val path = Path().apply { moveTo(x, y) }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, 80))
+            .build()
+        return dispatchGesture(gesture, null, null)
+    }
+
     /** Best-effort uninstall flow using the launcher: Home -> long-press icon -> drag to Uninstall -> confirm. */
     fun uninstallApp(packageName: String? = null, appLabel: String? = null): Boolean {
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.N) return false
