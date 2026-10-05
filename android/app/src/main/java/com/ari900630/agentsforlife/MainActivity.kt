@@ -142,7 +142,7 @@ class MainActivity : Activity() {
 
         val filter = IntentFilter(AgentAccessibilityService.ACTION_CURRENT_APP)
         if (android.os.Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(currentAppReceiver, filter, RECEIVER_NOT_EXPORTED)
+            registerReceiver(currentAppReceiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED)
         } else {
             @Suppress("DEPRECATION")
             registerReceiver(currentAppReceiver, filter)
