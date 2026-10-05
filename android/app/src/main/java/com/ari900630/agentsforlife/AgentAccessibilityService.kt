@@ -75,7 +75,7 @@ class AgentAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     private fun publishCurrentApp(packageName: String) {
-        getSharedPreferences("agents_runtime", MODE_PRIVATE).edit()
+        getSharedPreferences("agents_runtime", android.content.Context.MODE_PRIVATE).edit()
             .putString("current_package", packageName)
             .apply()
         sendBroadcast(Intent(ACTION_CURRENT_APP).apply {
