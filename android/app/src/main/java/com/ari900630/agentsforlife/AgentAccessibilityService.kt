@@ -135,6 +135,25 @@ class AgentAccessibilityService : AccessibilityService() {
         return out
     }
 
+    fun typeText(text: String): Boolean {
+        val root = rootNode() ?: return false
+        fun walk(n: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+            if (n.isEditable && n.isFocused) return n
+            for (i in 0 until n.childCount) n.getChild(i)?.let { val found = walk(it); if (found != null) return found }
+            return null
+        }
+        val node = walk(root) ?: return false
+        return node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+        })
+    }
+
+    fun sendText(text: String): Boolean {
+        val typed = if (text.isNotBlank()) typeText(text) else true
+        if (!typed) return false
+        return clickTextOrDescription("Send|שלח|שליחה|➤|✓")
+    }
+
     fun clickTextOrDescription(target: String): Boolean {
         for (node in matchingNodes(rootNode(), target)) {
             if (node.isClickable && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
@@ -217,6 +236,8 @@ class AgentAccessibilityService : AccessibilityService() {
         for (attempt in 0..2) {
             attempts = attempt + 1
             ok = when (type) {
+                "TYPE_TEXT" -> typeText(target)
+                "SEND_TEXT" -> sendText(target)
                 "CLICK_TEXT", "CLICK_CONTENT_DESCRIPTION", "CLICK_ROLE" -> clickTextOrDescription(target)
                 "LONG_CLICK_TEXT" -> longClickText(target)
                 "SCROLL" -> scrollDirection(direction.ifBlank { "down" })
