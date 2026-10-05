@@ -64,7 +64,11 @@ object AgentActionBridge {
     }
 
     private fun execute(context: Context, action: JSONObject): Boolean {
-        return when (action.optString("type")) {
+        val type = action.optString("type")
+        val started = System.currentTimeMillis()
+        var result = false
+        var reason = "unknown"
+        result = when (type) {
             "OPEN_SETTINGS" -> AgentAction.openSettings(context, action.optString("setting"))
             "CALL" -> AgentAction.call(context, action.optString("number"))
             "OPEN_URL" -> runCatching {
@@ -120,6 +124,9 @@ object AgentActionBridge {
             }.getOrDefault(false)
             else -> false
         }
+        reason = if (result) "action reported success" else "action returned failure or target unavailable"
+        AgentAccessibilityService.recordActionDiagnostic(type, result, reason, System.currentTimeMillis() - started)
+        return result
     }
 
     private object AccessibilityServiceAction {
