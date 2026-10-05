@@ -1,6 +1,7 @@
 package com.ari900630.agentsforlife
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.content.BroadcastReceiver
 import android.content.IntentFilter
@@ -71,6 +72,15 @@ class MainActivity : Activity() {
             setTextColor(Color.WHITE)
             setTypeface(null, Typeface.BOLD)
         }, LinearLayout.LayoutParams(0, 48, 1f))
+        header.addView(Button(this).apply {
+            text = "מצב"
+            textSize = 12f
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            background = rounded(Color.rgb(30, 55, 182), 18f, Color.rgb(62, 91, 218))
+            setOnClickListener { showDiagnostics() }
+        }, LinearLayout.LayoutParams(64, 36).apply { rightMargin = 6 })
+
         header.addView(TextView(this).apply {
             text = "מוכן"
             textSize = 12f
@@ -246,7 +256,10 @@ class MainActivity : Activity() {
                 serverUrl,
                 agent.name,
                 agent.instructions,
-                "האפליקציה הפעילה כרגע: " + currentAppLabel() + " (" + (AgentAccessibilityService.currentPackageName() ?: packageName) + ").\nהשתמש במידע הזה כדי להבין איפה אני נמצא עכשיו.\n\nמשימת המשתמש:\n" + request,
+                "האפליקציה הפעילה כרגע: " + currentAppLabel() + " (" + (AgentAccessibilityService.currentPackageName() ?: packageName) + ").\n" +
+                "השתמש במידע הזה כדי להבין איפה אני נמצא עכשיו.\n" +
+                "מצב אבחון אחרון:\n" + AgentAccessibilityService.diagnosticsSnapshot().takeLast(8).joinToString("\n") +
+                "\n\nמשימת המשתמש:\n" + request,
                 "Server",
                 "",
                 "openai/gpt-oss-20b",
@@ -290,6 +303,30 @@ class MainActivity : Activity() {
         if (bubble is TextView && bubble.text.toString() == "חושב…") {
             messages.removeView(last)
         }
+    }
+
+    private fun showDiagnostics() {
+        val lines = AgentAccessibilityService.diagnosticsSnapshot()
+        val service = if (AgentAccessibilityService.isEnabled()) "פעיל" else "לא פעיל"
+        val body = buildString {
+            append("שירות נגישות: ").append(service).append("\n")
+            append("אפליקציה פעילה: ").append(currentAppLabel()).append("\n\n")
+            if (lines.isEmpty()) append("עדיין אין אירועי אבחון.")
+            else lines.asReversed().forEach { line ->
+                val state = line.split("|").getOrNull(1).orEmpty()
+                val icon = when {
+                    state.contains("SUCCESS") -> "✓"
+                    state.contains("FAILURE") -> "✕"
+                    else -> "•"
+                }
+                append(icon).append(" ").append(line).append("\n")
+            }
+        }
+        AlertDialog.Builder(this)
+            .setTitle("מצב המערכת ואבחון")
+            .setMessage(body)
+            .setPositiveButton("סגור", null)
+            .show()
     }
 
     private fun startVoice() {
