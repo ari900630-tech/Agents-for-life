@@ -409,6 +409,7 @@ class AgentAccessibilityService : AccessibilityService() {
         @Volatile private var instance: AgentAccessibilityService? = null
         fun performGlobal(action: Int): Boolean = instance?.performGlobalAction(action) == true
         fun isEnabled(): Boolean = instance != null
+        fun recordActionDiagnostic(action: String, success: Boolean, reason: String, durationMs: Long) { instance?.recordDiagnostic(action, (if (success) "SUCCESS" else "FAILURE") + "|durationMs=" + durationMs + "|reason=" + reason) }
         fun currentPackageName(): String? = instance?.rootInActiveWindow?.packageName?.toString()
             ?.takeIf { it.isNotBlank() }
             ?: instance?.getSharedPreferences("agents_runtime", MODE_PRIVATE)
