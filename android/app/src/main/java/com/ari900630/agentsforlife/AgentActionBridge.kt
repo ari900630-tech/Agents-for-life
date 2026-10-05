@@ -4,10 +4,9 @@ import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.provider.Settings
 import org.json.JSONObject
 
-/** Explicit, allow-listed device actions. Every action requires user confirmation. */
+/** Device actions. Safe interactive actions execute directly; sensitive system actions remain confirmable. */
 object AgentActionBridge {
     private const val PREFIX = "[[DEVICE_ACTION:"
     private const val SUFFIX = "]]"
@@ -17,15 +16,33 @@ object AgentActionBridge {
             val raw = chunk.substringBefore(SUFFIX, "")
             if (raw.isBlank()) null else runCatching { JSONObject(raw) }.getOrNull()
         }
-        if (actions.isEmpty()) {
-            onDone?.invoke(response)
-            return
-        }
+        if (actions.isEmpty()) { onDone?.invoke(response); return }
         val cleaned = response.replace(Regex("\\[\\[DEVICE_ACTION:.*?\\]\\]"), "").trim()
-        confirmNext(context, actions, 0, cleaned, onDone)
+        val direct = setOf(
+            "TYPE_TEXT","SEND_TEXT","CLICK_TEXT","LONG_CLICK_TEXT","OPEN_CHAT_MENU","PIN","PRESS_SEND",
+            "LIKE","FOLLOW","OPEN_NOTIFICATIONS","APPROVE","CLICK_CONTENT_DESCRIPTION","CLICK_ROLE",
+            "SCROLL","SWIPE","CLICK_NOTIFICATION","LONG_CLICK_NOTIFICATION","CLICK_QUICK_SETTING",
+            "LONG_CLICK_QUICK_SETTING","MOVE_OVERLAY"
+        )
+        executeDirect(context, actions, 0, cleaned, direct, onDone)
     }
 
-    private fun confirmNext(context: Context, actions: List<JSONObject>, index: Int, text: String, onDone: ((String) -> Unit)?) {
+    private fun executeDirect(context: Context, actions: List<JSONObject>, index: Int, text: String,
+                              direct: Set<String>, onDone: ((String) -> Unit)?) {
+        if (index >= actions.size) { onDone?.invoke(text); return }
+        val action = actions[index]
+        val type = action.optString("type")
+        if (!direct.contains(type)) {
+            confirmNext(context, actions, index, text, onDone)
+            return
+        }
+        val result = execute(context, action)
+        val suffix = if (result) "\n✓ בוצע: $type" else "\n✕ לא בוצע: $type"
+        executeDirect(context, actions, index + 1, text + suffix, direct, onDone)
+    }
+
+    private fun confirmNext(context: Context, actions: List<JSONObject>, index: Int, text: String,
+                            onDone: ((String) -> Unit)?) {
         if (index >= actions.size) { onDone?.invoke(text); return }
         val action = actions[index]
         val type = action.optString("type")
@@ -47,9 +64,9 @@ object AgentActionBridge {
             "SMS" -> "פתיחת הודעת SMS מוכנה לשליחה"
             "EMAIL" -> "פתיחת הודעת דואר מוכנה לשליחה"
             "MAP" -> "פתיחת מפה"
+            "UNINSTALL_CURRENT_APP","UNINSTALL_APP" -> "הסרת אפליקציה מהמכשיר"
             else -> "פעולה במכשיר: $type"
         }
-
         AlertDialog.Builder(context)
             .setTitle("אישור פעולה")
             .setMessage(description)
@@ -66,9 +83,7 @@ object AgentActionBridge {
     private fun execute(context: Context, action: JSONObject): Boolean {
         val type = action.optString("type")
         val started = System.currentTimeMillis()
-        var result = false
-        var reason = "unknown"
-        result = when (type) {
+        val result = when (type) {
             "OPEN_SETTINGS" -> AgentAction.openSettings(context, action.optString("setting"))
             "CALL" -> AgentAction.call(context, action.optString("number"))
             "OPEN_URL" -> runCatching {
@@ -79,64 +94,75 @@ object AgentActionBridge {
             }.getOrDefault(false)
             "LAUNCH_APP" -> runCatching {
                 val pkg = action.optString("package")
-                if (pkg.isBlank()) return false
                 val intent = context.packageManager.getLaunchIntentForPackage(pkg) ?: return false
                 context.startActivity(intent)
                 true
             }.getOrDefault(false)
-            "PLAY_STORE_INSTALL" -> AgentAccessibilityService.installFromPlayStore(action.optString("package"), action.optString("app", action.optString("package")))
-            "HOME" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.HOME)
-            "BACK" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.BACK)
-            "RECENTS" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.RECENTS)
-            "NOTIFICATIONS" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.NOTIFICATIONS)
-            "QUICK_SETTINGS" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.QUICK_SETTINGS)
-            "POWER_DIALOG" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.POWER_DIALOG)
-            "LOCK_SCREEN" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.LOCK_SCREEN)
-            "SCREENSHOT" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.SCREENSHOT)
+            "PLAY_STORE_INSTALL" -> AgentAccessibilityService.installFromPlayStore(
+                action.optString("package"), action.optString("app", action.optString("package"))
+            )
+            "HOME" -> AgentAccessibilityService.performGlobal(2)
+            "BACK" -> AgentAccessibilityService.performGlobal(1)
+            "RECENTS" -> AgentAccessibilityService.performGlobal(3)
+            "NOTIFICATIONS" -> AgentAccessibilityService.performGlobal(4)
+            "QUICK_SETTINGS" -> AgentAccessibilityService.performGlobal(5)
+            "POWER_DIALOG" -> AgentAccessibilityService.performGlobal(6)
+            "LOCK_SCREEN" -> AgentAccessibilityService.performGlobal(8)
+            "SCREENSHOT" -> AgentAccessibilityService.performGlobal(9)
             "SHARE_TEXT" -> runCatching {
-                val text = action.optString("text")
                 context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text)
+                    type = "text/plain"; putExtra(Intent.EXTRA_TEXT, action.optString("text"))
                 }, "שיתוף"))
                 true
             }.getOrDefault(false)
             "SMS" -> runCatching {
-                val number = action.optString("number")
-                val body = action.optString("body")
-                context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(number))).apply {
-                    putExtra("sms_body", body)
-                })
+                context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(action.optString("number")))))
                 true
             }.getOrDefault(false)
             "EMAIL" -> runCatching {
-                val to = action.optString("to")
-                val subject = action.optString("subject")
-                val body = action.optString("body")
-                context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(to))).apply {
-                    putExtra(Intent.EXTRA_SUBJECT, subject); putExtra(Intent.EXTRA_TEXT, body)
-                })
+                context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(action.optString("to")))))
                 true
             }.getOrDefault(false)
             "MAP" -> runCatching {
-                val query = action.optString("query")
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(query))))
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(action.optString("query")))))
                 true
+            }.getOrDefault(false)
+            "TYPE_TEXT" -> AgentAccessibilityService.instanceTypeText(action.optString("text"))
+            "SEND_TEXT" -> AgentAccessibilityService.instanceSendText(action.optString("text"))
+            "CLICK_TEXT" -> AgentAccessibilityService.instanceClickText(action.optString("target", action.optString("text")))
+            "LONG_CLICK_TEXT" -> AgentAccessibilityService.instanceLongClickText(action.optString("target", action.optString("text")))
+            "OPEN_CHAT_MENU" -> AgentAccessibilityService.instanceClickText("⋮|More options|עוד אפשרויות|שלוש נקודות")
+            "PIN" -> AgentAccessibilityService.instanceClickText("Pin|הצמד|נעץ|Pinned")
+            "PRESS_SEND" -> AgentAccessibilityService.instanceClickText("Send|שלח|שליחה|➤")
+            "LIKE" -> AgentAccessibilityService.instancePerformFallback("LIKE")
+            "FOLLOW" -> AgentAccessibilityService.instancePerformFallback("FOLLOW")
+            "OPEN_NOTIFICATIONS" -> AgentAccessibilityService.performGlobal(4)
+            "APPROVE" -> AgentAccessibilityService.instancePerformFallback("APPROVE")
+            "CLICK_CONTENT_DESCRIPTION" -> AgentAccessibilityService.instancePerformFallback("CLICK_CONTENT_DESCRIPTION", action.optString("target"))
+            "CLICK_ROLE" -> AgentAccessibilityService.instancePerformFallback("CLICK_ROLE", action.optString("target", action.optString("role")))
+            "SCROLL" -> AgentAccessibilityService.instancePerformFallback("SCROLL", direction = action.optString("direction", "down"))
+            "SWIPE" -> AgentAccessibilityService.instancePerformFallback("SWIPE", direction = action.optString("direction", "up"))
+            "CLICK_NOTIFICATION" -> AgentAccessibilityService.instanceOpenNotificationsAndClick(action.optString("target"), false)
+            "LONG_CLICK_NOTIFICATION" -> AgentAccessibilityService.instanceOpenNotificationsAndClick(action.optString("target"), true)
+            "CLICK_QUICK_SETTING" -> AgentAccessibilityService.instanceOpenQuickSettingsAndClick(action.optString("target"), false)
+            "LONG_CLICK_QUICK_SETTING" -> AgentAccessibilityService.instanceOpenQuickSettingsAndClick(action.optString("target"), true)
+            "MOVE_OVERLAY" -> {
+                val y = action.optInt("y", Int.MIN_VALUE)
+                if (y != Int.MIN_VALUE) AgentAccessibilityService.moveOverlayToY(y)
+                else AgentAccessibilityService.moveOverlay(action.optInt("deltaY", action.optInt("dy", 0)))
+            }
+            "UNINSTALL_CURRENT_APP","UNINSTALL_APP" -> runCatching {
+                val pkg = action.optString("package").ifBlank { AgentAccessibilityService.currentPackageName().orEmpty() }
+                if (pkg.isBlank() || pkg == context.packageName) false
+                else {
+                    context.startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:$pkg")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    true
+                }
             }.getOrDefault(false)
             else -> false
         }
-        reason = if (result) "action reported success" else "action returned failure or target unavailable"
+        val reason = if (result) "action reported success" else "target unavailable or action failed"
         AgentAccessibilityService.recordActionDiagnostic(type, result, reason, System.currentTimeMillis() - started)
         return result
-    }
-
-    private object AccessibilityServiceAction {
-        const val HOME = 2
-        const val BACK = 1
-        const val RECENTS = 3
-        const val NOTIFICATIONS = 4
-        const val POWER_DIALOG = 6
-        const val QUICK_SETTINGS = 5
-        const val LOCK_SCREEN = 8
-        const val SCREENSHOT = 9
     }
 }
