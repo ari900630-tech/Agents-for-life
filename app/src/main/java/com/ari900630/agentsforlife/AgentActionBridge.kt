@@ -69,6 +69,11 @@ object AgentActionBridge {
             "LONG_CLICK_NOTIFICATION" -> "לחיצה ארוכה על התראה: " + action.optString("target")
             "CLICK_QUICK_SETTING" -> "לחיצה על כפתור בהגדרות המהירות: " + action.optString("target")
             "LONG_CLICK_QUICK_SETTING" -> "לחיצה ארוכה על כפתור בהגדרות המהירות: " + action.optString("target")
+            "CLICK_CONTENT_DESCRIPTION" -> "לחיצה על רכיב: " + action.optString("target")
+            "CLICK_ROLE" -> "לחיצה על רכיב מסוג: " + action.optString("role")
+            "SCROLL" -> "גלילה: " + action.optString("direction")
+            "SWIPE" -> "החלקה: " + action.optString("direction")
+            "LONG_CLICK_QUICK_SETTING" -> "לחיצה ארוכה על כפתור בהגדרות המהירות: " + action.optString("target")
             "APPROVE" -> "אישור הפעולה"
             else -> "פעולה במכשיר: $type"
         }
@@ -95,10 +100,11 @@ object AgentActionBridge {
 
     private fun isDirectUiAction(type: String): Boolean = type in setOf(
         "TYPE_TEXT", "SEND_TEXT", "CLICK_TEXT", "LONG_CLICK_TEXT", "OPEN_CHAT_MENU",
-        "PIN", "PRESS_SEND", "LIKE", "FOLLOW", "OPEN_NOTIFICATIONS", "APPROVE",
+        "PIN", "PRESS_SEND", "LIKE", "FOLLOW", "OPEN_NOTIFICATIONS", "APPROVE", "CLICK_CONTENT_DESCRIPTION", "CLICK_ROLE", "SCROLL", "SWIPE", "CLICK_NOTIFICATION", "LONG_CLICK_NOTIFICATION", "CLICK_QUICK_SETTING", "LONG_CLICK_QUICK_SETTING",
         "UNINSTALL_APP", "UNINSTALL_CURRENT_APP",
         "CLICK_NOTIFICATION", "LONG_CLICK_NOTIFICATION",
-        "CLICK_QUICK_SETTING", "LONG_CLICK_QUICK_SETTING"
+        "CLICK_QUICK_SETTING", "LONG_CLICK_QUICK_SETTING",
+        "CLICK_CONTENT_DESCRIPTION", "CLICK_ROLE", "SCROLL", "SWIPE"
     )
 
     private fun directDescription(type: String, action: JSONObject): String = when (type) {
@@ -134,6 +140,10 @@ object AgentActionBridge {
             "LONG_CLICK_NOTIFICATION" -> AgentAccessibilityService.instanceOpenNotificationsAndClick(action.optString("target"), true)
             "CLICK_QUICK_SETTING" -> AgentAccessibilityService.instanceOpenQuickSettingsAndClick(action.optString("target"), false)
             "LONG_CLICK_QUICK_SETTING" -> AgentAccessibilityService.instanceOpenQuickSettingsAndClick(action.optString("target"), true)
+            "CLICK_CONTENT_DESCRIPTION" -> AgentAccessibilityService.clickByContentDescription(action.optString("target").split("|").map { it.trim() })
+            "CLICK_ROLE" -> AgentAccessibilityService.clickNearbyByRole(action.optString("role"))
+            "SCROLL" -> AgentAccessibilityService.scroll(action.optString("direction", "down"))
+            "SWIPE" -> AgentAccessibilityService.swipe(action.optString("direction", "up"))
             "HOME" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.HOME)
             "BACK" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.BACK)
             "RECENTS" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.RECENTS)
