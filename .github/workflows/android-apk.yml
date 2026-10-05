@@ -29,8 +29,24 @@ jobs:
           base64 -d icon_base64.txt > app/src/main/res/drawable-nodpi/ic_launcher_agents_image.webp
           test -s app/src/main/res/drawable-nodpi/ic_launcher_agents_image.webp
           file app/src/main/res/drawable-nodpi/ic_launcher_agents_image.webp
+          # Create valid launcher resources. Do not place a bitmap directly in mipmap-anydpi-v26;
+          # API 26+ expects an adaptive-icon XML resource there.
           mkdir -p app/src/main/res/mipmap-anydpi-v26
-          cp app/src/main/res/drawable-nodpi/ic_launcher_agents_image.webp app/src/main/res/mipmap-anydpi-v26/ic_launcher.webp
+          cat > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@drawable/ic_launcher_agents_image" />
+              <foreground android:drawable="@drawable/ic_launcher_agents_image" />
+          </adaptive-icon>
+          EOF
+          cp app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+
+          # Also provide legacy mipmap resources so @mipmap/ic_launcher is always resolvable.
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p "app/src/main/res/mipmap-$density"
+            cp app/src/main/res/drawable-nodpi/ic_launcher_agents_image.webp "app/src/main/res/mipmap-$density/ic_launcher.webp"
+            cp app/src/main/res/drawable-nodpi/ic_launcher_agents_image.webp "app/src/main/res/mipmap-$density/ic_launcher_round.webp"
+          done
 
       - name: Setup Java 17
         uses: actions/setup-java@v5
