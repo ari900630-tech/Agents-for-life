@@ -585,6 +585,18 @@ class AgentAccessibilityService : AccessibilityService() {
         inputText = null
     }
 
+    // Static bridge methods used by the AI action layer.
+    fun bridgeTypeText(text: String): Boolean = performActionWithFallback("TYPE_TEXT", text)
+    fun bridgeSendText(text: String): Boolean = performActionWithFallback("SEND_TEXT", text)
+    fun bridgeClickText(target: String): Boolean = performActionWithFallback("CLICK_TEXT", target)
+    fun bridgeLongClickText(target: String): Boolean = performActionWithFallback("LONG_CLICK_TEXT", target)
+    fun bridgePerformFallback(type: String, target: String = "", direction: String = ""): Boolean =
+        performActionWithFallback(type, target, direction)
+    fun bridgeOpenNotificationsAndClick(target: String, longClick: Boolean): Boolean =
+        openNotificationsAndClick(target, longClick)
+    fun bridgeOpenQuickSettingsAndClick(target: String, longClick: Boolean): Boolean =
+        openQuickSettingsAndClick(target, longClick)
+
     companion object {
         const val ACTION_CURRENT_APP = "com.ari900630.agentsforlife.CURRENT_APP_CHANGED"
         const val EXTRA_PACKAGE = "package_name"
