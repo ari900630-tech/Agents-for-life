@@ -34,6 +34,7 @@ class AgentAccessibilityService : AccessibilityService() {
     private var previewContainer: LinearLayout? = null
     private var statusText: TextView? = null
     private var inputText: EditText? = null
+    private var previewParams: WindowManager.LayoutParams? = null
     private var live = false
     private var listening = false
     private var lastPublishedPackage: String? = null
@@ -46,7 +47,17 @@ class AgentAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
+        loadDiagnostics()
         rootInActiveWindow?.packageName?.toString()?.takeIf { it.isNotBlank() }?.let { publishCurrentApp(it) }
+    }
+
+    private fun loadDiagnostics() {
+        val saved = getSharedPreferences("agents_runtime", android.content.Context.MODE_PRIVATE)
+            .getString("diagnostics", "").orEmpty()
+        if (saved.isNotBlank()) {
+            diagnostics.clear()
+            diagnostics.addAll(saved.lines().takeLast(100))
+        }
     }
 
     private fun ensureTts() {
@@ -92,6 +103,138 @@ class AgentAccessibilityService : AccessibilityService() {
 
     fun getDiagnostics(): List<String> = diagnostics.toList()
 
+    fun diagnosticsSnapshot(): List<String> = diagnostics.takeLast(20)
+
+    fun moveOverlay(deltaY: Int): Boolean {
+        val params = previewParams ?: return false
+        val container = previewContainer ?: return false
+        params.y = (params.y + deltaY).coerceIn(0, resources.displayMetrics.heightPixels - dp(120))
+        return runCatching { wm.updateViewLayout(container, params); true }.getOrDefault(false)
+    }
+
+    fun moveOverlayToY(y: Int): Boolean {
+        val params = previewParams ?: return false
+        val container = previewContainer ?: return false
+        params.y = y.coerceIn(0, resources.displayMetrics.heightPixels - dp(120))
+        return runCatching { wm.updateViewLayout(container, params); true }.getOrDefault(false)
+    }
+
+    private fun rootNode(): AccessibilityNodeInfo? = rootInActiveWindow
+
+    private fun matchingNodes(node: AccessibilityNodeInfo?, target: String): List<AccessibilityNodeInfo> {
+        if (node == null) return emptyList()
+        val alternatives = target.split("|").map { it.trim() }.filter { it.isNotBlank() }
+        val out = mutableListOf<AccessibilityNodeInfo>()
+        fun walk(n: AccessibilityNodeInfo) {
+            val text = n.text?.toString()?.trim().orEmpty()
+            val desc = n.contentDescription?.toString()?.trim().orEmpty()
+            if (alternatives.any { it.equals(text, true) || it.equals(desc, true) || text.contains(it, true) || desc.contains(it, true) }) out += n
+            for (i in 0 until n.childCount) n.getChild(i)?.let(::walk)
+        }
+        walk(node)
+        return out
+    }
+
+    fun clickTextOrDescription(target: String): Boolean {
+        for (node in matchingNodes(rootNode(), target)) {
+            if (node.isClickable && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
+            node.parent?.let { if (it.isClickable && it.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true }
+            val r = Rect()
+            node.getBoundsInScreen(r)
+            if (!r.isEmpty && dispatchTap(r.centerX().toFloat(), r.centerY().toFloat())) return true
+        }
+        return false
+    }
+
+    fun longClickText(target: String): Boolean {
+        for (node in matchingNodes(rootNode(), target)) {
+            if (node.isLongClickable && node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)) return true
+            val r = Rect()
+            node.getBoundsInScreen(r)
+            if (!r.isEmpty && dispatchLongPress(r.centerX().toFloat(), r.centerY().toFloat())) return true
+        }
+        return false
+    }
+
+    fun scrollDirection(direction: String): Boolean {
+        val root = rootNode() ?: return false
+        val action = if (direction.equals("up", true)) AccessibilityNodeInfo.ACTION_SCROLL_FORWARD else AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
+        fun walk(n: AccessibilityNodeInfo): Boolean {
+            if (n.isScrollable && n.performAction(action)) return true
+            for (i in 0 until n.childCount) n.getChild(i)?.let { if (walk(it)) return true }
+            return false
+        }
+        return walk(root)
+    }
+
+    fun swipeDirection(direction: String): Boolean {
+        val w = resources.displayMetrics.widthPixels.toFloat()
+        val h = resources.displayMetrics.heightPixels.toFloat()
+        val cx = w / 2f
+        val cy = h / 2f
+        val dx = when (direction.lowercase()) { "left" -> -w * .35f; "right" -> w * .35f; else -> 0f }
+        val dy = when (direction.lowercase()) { "up" -> -h * .28f; "down" -> h * .28f; else -> 0f }
+        return dispatchSwipe(cx - dx, cy - dy, cx + dx, cy + dy)
+    }
+
+    private fun dispatchLongPress(x: Float, y: Float): Boolean {
+        val path = Path().apply { moveTo(x, y) }
+        val gesture = android.accessibilityservice.GestureDescription.Builder()
+            .addStroke(android.accessibilityservice.GestureDescription.StrokeDescription(path, 0, 650))
+            .build()
+        return dispatchGesture(gesture, null, null)
+    }
+
+    private fun dispatchSwipe(x1: Float, y1: Float, x2: Float, y2: Float): Boolean {
+        val path = Path().apply { moveTo(x1, y1); lineTo(x2, y2) }
+        val gesture = android.accessibilityservice.GestureDescription.Builder()
+            .addStroke(android.accessibilityservice.GestureDescription.StrokeDescription(path, 0, 420))
+            .build()
+        return dispatchGesture(gesture, null, null)
+    }
+
+    fun clickCurrentLike(): Boolean = clickTextOrDescription("Like|אהבתי|לייק|👍")
+    fun clickCurrentFollow(): Boolean = clickTextOrDescription("Follow|עקוב|עוקב|Follow back")
+    fun clickApprove(): Boolean = clickTextOrDescription("Approve|אשר|אישור|Allow|אפשר|Confirm|כן")
+
+    fun openNotificationsAndClick(target: String, longClick: Boolean = false): Boolean {
+        if (!performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)) return false
+        handler.postDelayed({ if (longClick) longClickText(target) else clickTextOrDescription(target) }, 450)
+        return true
+    }
+
+    fun openQuickSettingsAndClick(target: String, longClick: Boolean = false): Boolean {
+        if (!performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS)) return false
+        handler.postDelayed({ if (longClick) longClickText(target) else clickTextOrDescription(target) }, 450)
+        return true
+    }
+
+    fun performActionWithFallback(type: String, target: String = "", direction: String = ""): Boolean {
+        val started = System.currentTimeMillis()
+        var ok = false
+        var reason = "target unavailable"
+        var attempts = 0
+        for (attempt in 0..2) {
+            attempts = attempt + 1
+            ok = when (type) {
+                "CLICK_TEXT", "CLICK_CONTENT_DESCRIPTION", "CLICK_ROLE" -> clickTextOrDescription(target)
+                "LONG_CLICK_TEXT" -> longClickText(target)
+                "SCROLL" -> scrollDirection(direction.ifBlank { "down" })
+                "SWIPE" -> swipeDirection(direction.ifBlank { "up" })
+                "LIKE" -> clickCurrentLike()
+                "FOLLOW" -> clickCurrentFollow()
+                "APPROVE" -> clickApprove()
+                else -> false
+            }
+            if (ok) { reason = "completed on attempt " + attempts; break }
+            if (attempt < 2) {
+                Thread.sleep(120L * (attempt + 1))
+                rootInActiveWindow?.refresh()
+            }
+        }
+        recordDiagnostic(type, (if (ok) "SUCCESS" else "FAILURE") + "|attempts=" + attempts + "|durationMs=" + (System.currentTimeMillis() - started) + "|reason=" + reason)
+        return ok
+    }
 
     private fun publishCurrentApp(packageName: String) {
         lastPublishedPackage = packageName
@@ -218,9 +361,26 @@ class AgentAccessibilityService : AccessibilityService() {
             y = 18
         }
 
+        title.setOnTouchListener(object : android.view.View.OnTouchListener {
+            var downY = 0f
+            var startY = 0
+            override fun onTouch(v: android.view.View, event: android.view.MotionEvent): Boolean {
+                when (event.actionMasked) {
+                    android.view.MotionEvent.ACTION_DOWN -> { downY = event.rawY; startY = params.y; return true }
+                    android.view.MotionEvent.ACTION_MOVE -> {
+                        params.y = (startY + (event.rawY - downY).toInt()).coerceIn(0, resources.displayMetrics.heightPixels - dp(120))
+                        runCatching { wm.updateViewLayout(box, params) }
+                        return true
+                    }
+                }
+                return true
+            }
+        })
+
         runCatching { wm.addView(box, params) }.onSuccess {
             preview = image
             previewContainer = box
+            previewParams = params
         }
     }
 
@@ -399,6 +559,7 @@ class AgentAccessibilityService : AccessibilityService() {
         preview = null
         previewContainer?.let { runCatching { wm.removeView(it) } }
         previewContainer = null
+        previewParams = null
         statusText = null
         inputText = null
     }
@@ -410,6 +571,9 @@ class AgentAccessibilityService : AccessibilityService() {
         fun performGlobal(action: Int): Boolean = instance?.performGlobalAction(action) == true
         fun isEnabled(): Boolean = instance != null
         fun recordActionDiagnostic(action: String, success: Boolean, reason: String, durationMs: Long) { instance?.recordDiagnostic(action, (if (success) "SUCCESS" else "FAILURE") + "|durationMs=" + durationMs + "|reason=" + reason) }
+        fun moveOverlay(deltaY: Int): Boolean = instance?.moveOverlay(deltaY) == true
+        fun moveOverlayToY(y: Int): Boolean = instance?.moveOverlayToY(y) == true
+        fun diagnosticsSnapshot(): List<String> = instance?.diagnosticsSnapshot() ?: emptyList()
         fun currentPackageName(): String? = instance?.rootInActiveWindow?.packageName?.toString()
             ?.takeIf { it.isNotBlank() }
             ?: instance?.getSharedPreferences("agents_runtime", MODE_PRIVATE)
