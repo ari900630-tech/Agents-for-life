@@ -36,6 +36,7 @@ class AgentAccessibilityService : AccessibilityService() {
     private var inputText: EditText? = null
     private var live = false
     private var listening = false
+    private var lastPublishedPackage: String? = null
     private var speechRecognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
     private val wm by lazy { getSystemService(WindowManager::class.java) }
@@ -68,13 +69,17 @@ class AgentAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: android.view.accessibility.AccessibilityEvent?) {
-        val pkg = event?.packageName?.toString()?.trim().orEmpty()
-        if (pkg.isNotBlank()) publishCurrentApp(pkg)
+        val e = event ?: return
+        if (e.eventType != android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+            e.eventType != android.view.accessibility.AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
+        val pkg = e.packageName?.toString()?.trim().orEmpty()
+        if (pkg.isNotBlank() && pkg != lastPublishedPackage) publishCurrentApp(pkg)
     }
 
     override fun onInterrupt() = Unit
 
     private fun publishCurrentApp(packageName: String) {
+        lastPublishedPackage = packageName
         getSharedPreferences("agents_runtime", android.content.Context.MODE_PRIVATE).edit()
             .putString("current_package", packageName)
             .apply()
