@@ -110,9 +110,11 @@ object AgentActionBridge {
             "LOCK_SCREEN" -> AgentAccessibilityService.performGlobal(8)
             "SCREENSHOT" -> AgentAccessibilityService.performGlobal(9)
             "SHARE_TEXT" -> runCatching {
-                context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"; putExtra(Intent.EXTRA_TEXT, action.optString("text"))
-                }, "שיתוף"))
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, action.optString("text"))
+                }
+                context.startActivity(Intent.createChooser(shareIntent, "שיתוף"))
                 true
             }.getOrDefault(false)
             "SMS" -> runCatching {
