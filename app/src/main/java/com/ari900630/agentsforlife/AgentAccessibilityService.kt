@@ -467,6 +467,102 @@ class AgentAccessibilityService : AccessibilityService() {
         return dispatchGesture(gesture, null, null)
     }
 
+    /** Best-effort uninstall flow using the launcher: Home -> long-press icon -> drag to Uninstall -> confirm. */
+    fun uninstallApp(packageName: String? = null, appLabel: String? = null): Boolean {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.N) return false
+        val targetPackage = packageName?.takeIf { it.isNotBlank() } ?: rootInActiveWindow?.packageName?.toString().orEmpty()
+        if (targetPackage.isBlank() || targetPackage == this.packageName) return false
+        val label = appLabel?.takeIf { it.isNotBlank() } ?: runCatching {
+            applicationContext.packageManager.getApplicationLabel(applicationContext.packageManager.getApplicationInfo(targetPackage, 0)).toString()
+        }.getOrNull().orEmpty()
+        stopLivePreview()
+        if (!performGlobalAction(GLOBAL_ACTION_HOME)) return false
+        handler.postDelayed({ findAndDragToUninstall(targetPackage, label, 0) }, 900)
+        return true
+    }
+
+    private fun findAndDragToUninstall(targetPackage: String, label: String, attempt: Int) {
+        if (attempt > 15) return
+        val root = rootInActiveWindow
+        val icon = root?.let { findAppIcon(it, targetPackage, label) }
+        if (icon != null) {
+            val b = Rect().also { icon.getBoundsInScreen(it) }
+            val startX = b.centerX().toFloat()
+            val startY = b.centerY().toFloat()
+            if (dispatchLongPress(startX, startY)) {
+                handler.postDelayed({ findUninstallTargetAndDrag(startX, startY, 0) }, 850)
+                return
+            }
+        }
+        handler.postDelayed({ findAndDragToUninstall(targetPackage, label, attempt + 1) }, 450)
+    }
+
+    private fun findUninstallTargetAndDrag(startX: Float, startY: Float, attempt: Int) {
+        if (attempt > 12) return
+        val root = rootInActiveWindow
+        val target = root?.let { findNodeByLabels(it, listOf("הסר התקנה", "הסרת התקנה", "הסר", "Uninstall", "Remove", "Remove app")) }
+        if (target != null) {
+            val b = Rect().also { target.getBoundsInScreen(it) }
+            val x = b.centerX().toFloat()
+            val y = b.centerY().toFloat()
+            if (dispatchDrag(startX, startY, x, y)) {
+                handler.postDelayed({ clickUninstallConfirmation(0) }, 900)
+                return
+            }
+        }
+        handler.postDelayed({ findUninstallTargetAndDrag(startX, startY, attempt + 1) }, 350)
+    }
+
+    private fun clickUninstallConfirmation(attempt: Int) {
+        if (attempt > 10) return
+        val root = rootInActiveWindow
+        if (root != null && clickNodeByLabels(root, listOf("הסר התקנה", "הסרת התקנה", "הסר", "Uninstall", "OK", "אישור"))) return
+        handler.postDelayed({ clickUninstallConfirmation(attempt + 1) }, 450)
+    }
+
+    private fun findAppIcon(node: AccessibilityNodeInfo, packageName: String, label: String): AccessibilityNodeInfo? {
+        val nodePackage = node.packageName?.toString().orEmpty()
+        val text = node.text?.toString()?.trim().orEmpty()
+        val desc = node.contentDescription?.toString()?.trim().orEmpty()
+        val matchesLabel = label.isNotBlank() && (text.equals(label, true) || desc.equals(label, true))
+        val matchesPackage = nodePackage == packageName
+        if ((matchesLabel || matchesPackage) && (node.isClickable || node.isLongClickable || node.childCount == 0)) return node
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val found = findAppIcon(child, packageName, label)
+            if (found != null) return found
+        }
+        return null
+    }
+
+    private fun findNodeByLabels(node: AccessibilityNodeInfo, labels: List<String>): AccessibilityNodeInfo? {
+        val text = node.text?.toString()?.trim().orEmpty()
+        val desc = node.contentDescription?.toString()?.trim().orEmpty()
+        if (labels.any { it.equals(text, true) || it.equals(desc, true) }) return node
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val found = findNodeByLabels(child, labels)
+            if (found != null) return found
+        }
+        return null
+    }
+
+    private fun dispatchLongPress(x: Float, y: Float): Boolean {
+        val path = Path().apply { moveTo(x, y) }
+        val gesture = android.accessibilityservice.GestureDescription.Builder()
+            .addStroke(android.accessibilityservice.GestureDescription.StrokeDescription(path, 0, 1100))
+            .build()
+        return dispatchGesture(gesture, null, null)
+    }
+
+    private fun dispatchDrag(startX: Float, startY: Float, endX: Float, endY: Float): Boolean {
+        val path = Path().apply { moveTo(startX, startY); lineTo(endX, endY) }
+        val gesture = android.accessibilityservice.GestureDescription.Builder()
+            .addStroke(android.accessibilityservice.GestureDescription.StrokeDescription(path, 0, 900))
+            .build()
+        return dispatchGesture(gesture, null, null)
+    }
+
     fun startLivePreview() {
         if (live) return
         live = true
