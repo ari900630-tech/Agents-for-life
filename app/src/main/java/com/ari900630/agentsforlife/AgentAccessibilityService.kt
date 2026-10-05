@@ -642,5 +642,9 @@ class AgentAccessibilityService : AccessibilityService() {
             instance?.installFromPlayStore(packageName, appLabel) == true
         fun instanceUninstallApp(packageName: String?, appLabel: String?): Boolean =
             instance?.uninstallApp(packageName, appLabel) == true
+        fun instanceOpenNotificationsAndClick(target: String, longClick: Boolean): Boolean =
+            instance?.openNotificationsAndClick(target, longClick) == true
+        fun instanceOpenQuickSettingsAndClick(target: String, longClick: Boolean): Boolean =
+            instance?.openQuickSettingsAndClick(target, longClick) == true
     }
 }
