@@ -5,6 +5,10 @@ PACKAGE_NAME="com.ari900630.agentsforlife"
 APK="android/app/build/outputs/apk/debug/app-debug.apk"
 LOG_FILE="android-startup-log.txt"
 
+# The cached Android 11 emulator may contain an older build signed with a
+# different debug key. Remove it first so the smoke test validates this APK
+# itself instead of failing on INSTALL_FAILED_UPDATE_INCOMPATIBLE.
+adb uninstall "$PACKAGE_NAME" >/dev/null 2>&1 || true
 adb install -r "$APK"
 adb logcat -c
 
