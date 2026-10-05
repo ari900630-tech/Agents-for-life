@@ -29,6 +29,13 @@ object AgentActionBridge {
         if (index >= actions.size) { onDone?.invoke(text); return }
         val action = actions[index]
         val type = action.optString("type")
+        if (isDirectUiAction(type)) {
+            val result = execute(context, action)
+            val description = directDescription(type, action)
+            val suffix = if (result) "\n✓ בוצע: $description" else "\n✕ לא ניתן לבצע: $description"
+            confirmNext(context, actions, index + 1, text + suffix, onDone)
+            return
+        }
         val description = when (type) {
             "OPEN_SETTINGS" -> "פתיחת הגדרות: " + action.optString("setting")
             "CALL" -> "פתיחת החייגן למספר: " + action.optString("number")
@@ -80,6 +87,21 @@ object AgentActionBridge {
             }
             .setCancelable(false)
             .show()
+    }
+
+    private fun isDirectUiAction(type: String): Boolean = type in setOf(
+        "TYPE_TEXT", "SEND_TEXT", "CLICK_TEXT", "LONG_CLICK_TEXT", "OPEN_CHAT_MENU",
+        "PIN", "PRESS_SEND", "LIKE", "FOLLOW", "OPEN_NOTIFICATIONS", "APPROVE",
+        "UNINSTALL_APP", "UNINSTALL_CURRENT_APP"
+    )
+
+    private fun directDescription(type: String, action: JSONObject): String = when (type) {
+        "UNINSTALL_APP", "UNINSTALL_CURRENT_APP" -> "הסרת האפליקציה " + action.optString("app", "הנוכחית")
+        "LIKE" -> "לחיצה על לייק"
+        "FOLLOW" -> "מעקב"
+        "OPEN_NOTIFICATIONS" -> "פתיחת חלונית ההתראות"
+        "APPROVE" -> "אישור הפעולה המוצגת"
+        else -> "ביצוע פעולת " + type
     }
 
     private fun execute(context: Context, action: JSONObject): Boolean {
