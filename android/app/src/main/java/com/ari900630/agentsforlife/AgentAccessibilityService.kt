@@ -43,6 +43,7 @@ class AgentAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
+        rootInActiveWindow?.packageName?.toString()?.takeIf { it.isNotBlank() }?.let { publishCurrentApp(it) }
     }
 
     private fun ensureTts() {
@@ -66,8 +67,24 @@ class AgentAccessibilityService : AccessibilityService() {
         super.onDestroy()
     }
 
-    override fun onAccessibilityEvent(event: android.view.accessibility.AccessibilityEvent?) = Unit
+    override fun onAccessibilityEvent(event: android.view.accessibility.AccessibilityEvent?) {
+        val pkg = event?.packageName?.toString()?.trim().orEmpty()
+        if (pkg.isNotBlank()) publishCurrentApp(pkg)
+    }
+
     override fun onInterrupt() = Unit
+
+    private fun publishCurrentApp(packageName: String) {
+        getSharedPreferences("agents_runtime", MODE_PRIVATE).edit()
+            .putString("current_package", packageName)
+            .apply()
+        sendBroadcast(Intent(ACTION_CURRENT_APP).apply {
+            putExtra(EXTRA_PACKAGE, packageName)
+            setPackage(packageNameForBroadcastTarget())
+        })
+    }
+
+    private fun packageNameForBroadcastTarget(): String = applicationContext.packageName
 
     private fun addLivePreview() {
         if (previewContainer != null) return
@@ -367,9 +384,15 @@ class AgentAccessibilityService : AccessibilityService() {
     }
 
     companion object {
+        const val ACTION_CURRENT_APP = "com.ari900630.agentsforlife.CURRENT_APP_CHANGED"
+        const val EXTRA_PACKAGE = "package_name"
         @Volatile private var instance: AgentAccessibilityService? = null
         fun performGlobal(action: Int): Boolean = instance?.performGlobalAction(action) == true
         fun isEnabled(): Boolean = instance != null
+        fun currentPackageName(): String? = instance?.rootInActiveWindow?.packageName?.toString()
+            ?.takeIf { it.isNotBlank() }
+            ?: instance?.getSharedPreferences("agents_runtime", MODE_PRIVATE)
+                ?.getString("current_package", null)
         fun startLivePreview(): Boolean {
             val s = instance ?: return false
             s.startLivePreview()
