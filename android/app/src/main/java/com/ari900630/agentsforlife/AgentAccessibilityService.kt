@@ -37,6 +37,8 @@ class AgentAccessibilityService : AccessibilityService() {
     private var live = false
     private var listening = false
     private var lastPublishedPackage: String? = null
+    private val diagnostics = java.util.concurrent.CopyOnWriteArrayList<String>()
+    private var lastActionName: String = "none"
     private var speechRecognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
     private val wm by lazy { getSystemService(WindowManager::class.java) }
@@ -76,7 +78,20 @@ class AgentAccessibilityService : AccessibilityService() {
         if (pkg.isNotBlank() && pkg != lastPublishedPackage) publishCurrentApp(pkg)
     }
 
-    override fun onInterrupt() = Unit
+    override fun onInterrupt() {
+        recordDiagnostic("SERVICE_INTERRUPTED", "Accessibility service interrupted")
+    }
+
+    fun recordDiagnostic(action: String, message: String) {
+        val entry = System.currentTimeMillis().toString() + "|" + action + "|" + message
+        diagnostics.add(entry)
+        while (diagnostics.size > 100) diagnostics.removeAt(0)
+        getSharedPreferences("agents_runtime", android.content.Context.MODE_PRIVATE)
+            .edit().putString("diagnostics", diagnostics.joinToString("\n")).apply()
+    }
+
+    fun getDiagnostics(): List<String> = diagnostics.toList()
+
 
     private fun publishCurrentApp(packageName: String) {
         lastPublishedPackage = packageName
