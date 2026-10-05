@@ -369,6 +369,23 @@ class AgentAccessibilityService : AccessibilityService() {
     fun sendCurrentText(): Boolean =
         clickText(listOf("שלח", "Send", "שליחה", "Send message", "שלח הודעה"))
 
+    fun likeCurrentItem(): Boolean =
+        clickText(listOf("לייק", "אהבתי", "אהב", "Like", "Liked", "👍", "Thumbs up"))
+
+    fun followCurrentItem(): Boolean =
+        clickText(listOf("עקוב", "עוקב", "לעקוב", "Follow", "Following", "Follow back", "עקוב בחזרה"))
+
+    fun openNotifications(): Boolean =
+        performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS)
+
+    fun approveCurrentAction(): Boolean =
+        clickText(listOf(
+            "אשר", "אישור", "אישור פעולה", "אישור בקשה", "אשר גישה",
+            "אפשר", "אפשר גישה", "התר", "המשך", "אישור והמשך",
+            "Confirm", "Approve", "Allow", "Accept", "Continue", "OK", "Yes",
+            "אישור", "✓"
+        ))
+
     fun installFromPlayStore(packageName: String, appLabel: String = packageName): Boolean {
         if (packageName.isBlank()) return false
         return try {
