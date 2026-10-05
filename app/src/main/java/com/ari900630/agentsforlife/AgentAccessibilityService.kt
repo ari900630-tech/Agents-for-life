@@ -378,6 +378,43 @@ class AgentAccessibilityService : AccessibilityService() {
     fun openNotifications(): Boolean =
         performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS)
 
+    fun clickByContentDescription(labels: List<String>): Boolean =
+        findNode { node -> labels.any { label -> node.contentDescription?.toString()?.contains(label, true) == true } }
+            ?.let { it.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK) } == true
+
+    fun clickNearbyByRole(role: String): Boolean {
+        val labels = when (role.lowercase()) {
+            "comment", "תגובה" -> listOf("תגובה", "תגובות", "Comment", "Comments")
+            "share", "שיתוף" -> listOf("שיתוף", "שתף", "Share")
+            "save", "שמירה" -> listOf("שמור", "שמירה", "Save", "Saved")
+            "message", "הודעה" -> listOf("הודעה", "שלח הודעה", "Message", "Messages")
+            "search", "חיפוש" -> listOf("חיפוש", "Search")
+            "back", "חזור" -> listOf("חזור", "Back", "Close", "סגור")
+            else -> listOf(role)
+        }
+        return clickText(labels) || clickByContentDescription(labels)
+    }
+
+    fun scroll(direction: String): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val action = if (direction.lowercase() in listOf("up", "למעלה", "הבא", "next"))
+            android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+        else android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
+        return root.performAction(action)
+    }
+
+    fun swipe(direction: String): Boolean {
+        val dm = resources.displayMetrics
+        val x = dm.widthPixels / 2f
+        val y1 = if (direction.lowercase() in listOf("up", "למעלה")) dm.heightPixels * .75f else dm.heightPixels * .25f
+        val y2 = if (direction.lowercase() in listOf("up", "למעלה")) dm.heightPixels * .25f else dm.heightPixels * .75f
+        val path = android.graphics.Path().apply { moveTo(x, y1); lineTo(x, y2) }
+        val gesture = android.accessibilityservice.GestureDescription.Builder()
+            .addStroke(android.accessibilityservice.GestureDescription.StrokeDescription(path, 0, 350))
+            .build()
+        return dispatchGesture(gesture, null, null)
+    }
+
     fun approveCurrentAction(): Boolean =
         clickText(listOf(
             "אשר", "אישור", "אישור פעולה", "אישור בקשה", "אשר גישה",
