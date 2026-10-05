@@ -2,6 +2,8 @@ package com.ari900630.agentsforlife
 
 import android.app.Activity
 import android.content.Intent
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -28,6 +30,15 @@ class MainActivity : Activity() {
     private var tts: TextToSpeech? = null
     private var listening = false
     private var sending = false
+    private lateinit var currentAppIcon: ImageView
+    private lateinit var currentAppName: TextView
+
+    private val currentAppReceiver = object : BroadcastReceiver {
+        override fun onReceive(context: android.content.Context?, intent: Intent?) {
+            val pkg = intent?.getStringExtra(AgentAccessibilityService.EXTRA_PACKAGE).orEmpty()
+            if (pkg.isNotBlank()) updateCurrentApp(pkg)
+        }
+    }
 
     private val serverUrl = "https://agents-for-life.onrender.com"
 
@@ -76,6 +87,26 @@ class MainActivity : Activity() {
             isFillViewport = true
             addView(messages)
         }
+        val currentAppRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(10, 8, 10, 8)
+            background = rounded(Color.rgb(16, 19, 28), 16f, Color.rgb(45, 52, 72))
+        }
+        currentAppIcon = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setPadding(3, 3, 3, 3)
+        }
+        currentAppName = TextView(this).apply {
+            text = "לא ידוע"
+            textSize = 13f
+            setTextColor(Color.rgb(205, 211, 228))
+            gravity = Gravity.CENTER_VERTICAL or Gravity.RIGHT
+        }
+        currentAppRow.addView(currentAppIcon, LinearLayout.LayoutParams(38, 38))
+        currentAppRow.addView(currentAppName, LinearLayout.LayoutParams(0, 38, 1f).apply { leftMargin = 9 })
+        root.addView(currentAppRow, LinearLayout.LayoutParams(-1, 54).apply { bottomMargin = 6 })
+
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
         val composer = LinearLayout(this).apply {
@@ -109,7 +140,31 @@ class MainActivity : Activity() {
         root.addView(composer)
         setContentView(root)
 
+        val filter = IntentFilter(AgentAccessibilityService.ACTION_CURRENT_APP)
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(currentAppReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(currentAppReceiver, filter)
+        }
+        val initialPackage = AgentAccessibilityService.currentPackageName()
+        if (!initialPackage.isNullOrBlank()) updateCurrentApp(initialPackage)
+        else updateCurrentApp(packageName)
+
         loadCurrentChat()
+    }
+
+    private fun updateCurrentApp(packageName: String) {
+        runCatching {
+            val info = packageManager.getApplicationInfo(packageName, 0)
+            val label = packageManager.getApplicationLabel(info).toString()
+            val icon = packageManager.getApplicationIcon(info)
+            currentAppIcon.setImageDrawable(icon)
+            currentAppName.text = "נמצא כרגע ב־" + label
+        }.onFailure {
+            currentAppIcon.setImageDrawable(null)
+            currentAppName.text = "נמצא כרגע ב־" + packageName
+        }
     }
 
     private fun loadCurrentChat() {
@@ -191,7 +246,7 @@ class MainActivity : Activity() {
                 serverUrl,
                 agent.name,
                 agent.instructions,
-                request,
+                "האפליקציה הפעילה כרגע: " + currentAppLabel() + " (" + (AgentAccessibilityService.currentPackageName() ?: packageName) + ").\nהשתמש במידע הזה כדי להבין איפה אני נמצא עכשיו.\n\nמשימת המשתמש:\n" + request,
                 "Server",
                 "",
                 "openai/gpt-oss-20b",
@@ -354,7 +409,13 @@ class MainActivity : Activity() {
         setContentView(box)
     }
 
+    private fun currentAppLabel(): String = runCatching {
+        val pkg = AgentAccessibilityService.currentPackageName() ?: packageName
+        packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
+    }.getOrDefault("לא ידוע")
+
     override fun onDestroy() {
+        runCatching { unregisterReceiver(currentAppReceiver) }
         speechRecognizer?.destroy()
         tts?.shutdown()
         super.onDestroy()
