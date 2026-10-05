@@ -603,5 +603,7 @@ class AgentAccessibilityService : AccessibilityService() {
         fun instanceReceiveVoiceStatus(message: String) { instance?.statusText?.post { instance?.statusText?.text = message } }
         fun installFromPlayStore(packageName: String, appLabel: String = packageName): Boolean =
             instance?.installFromPlayStore(packageName, appLabel) == true
+        fun instanceUninstallApp(packageName: String?, appLabel: String?): Boolean =
+            instance?.uninstallApp(packageName, appLabel) == true
     }
 }
