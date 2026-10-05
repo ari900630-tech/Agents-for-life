@@ -54,6 +54,10 @@ object AgentActionBridge {
             "OPEN_CHAT_MENU" -> "פתיחת תפריט שלוש הנקודות בצ'אט"
             "PIN" -> "לחיצה על נעץ"
             "PRESS_SEND" -> "לחיצה על שליחה"
+            "LIKE" -> "סימון לייק"
+            "FOLLOW" -> "לחיצה על עוקב/עקוב"
+            "OPEN_NOTIFICATIONS" -> "פתיחת ההתראות"
+            "APPROVE" -> "אישור הפעולה"
             else -> "פעולה במכשיר: $type"
         }
 
@@ -140,13 +144,17 @@ object AgentActionBridge {
             "OPEN_CHAT_MENU" -> AgentAccessibilityService.openChatMenu()
             "PIN" -> AgentAccessibilityService.pinItem()
             "PRESS_SEND" -> AgentAccessibilityService.sendCurrentText()
+            "LIKE" -> AgentAccessibilityService.likeCurrentItem()
+            "FOLLOW" -> AgentAccessibilityService.followCurrentItem()
+            "OPEN_NOTIFICATIONS" -> AgentAccessibilityService.openNotifications()
+            "APPROVE" -> AgentAccessibilityService.approveCurrentAction()
             else -> false
         }
 
     private fun requiresConfirmation(type: String): Boolean {
         return type !in setOf(
             "TYPE_TEXT", "SEND_TEXT", "CLICK_TEXT", "LONG_CLICK_TEXT",
-            "OPEN_CHAT_MENU", "PIN", "PRESS_SEND"
+            "OPEN_CHAT_MENU", "PIN", "PRESS_SEND", "LIKE", "FOLLOW", "OPEN_NOTIFICATIONS", "APPROVE"
         )
     }
     }
