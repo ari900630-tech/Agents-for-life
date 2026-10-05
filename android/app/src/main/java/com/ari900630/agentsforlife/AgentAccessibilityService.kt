@@ -585,18 +585,6 @@ class AgentAccessibilityService : AccessibilityService() {
         inputText = null
     }
 
-    // Static bridge methods used by the AI action layer.
-    fun bridgeTypeText(text: String): Boolean = performActionWithFallback("TYPE_TEXT", text)
-    fun bridgeSendText(text: String): Boolean = performActionWithFallback("SEND_TEXT", text)
-    fun bridgeClickText(target: String): Boolean = performActionWithFallback("CLICK_TEXT", target)
-    fun bridgeLongClickText(target: String): Boolean = performActionWithFallback("LONG_CLICK_TEXT", target)
-    fun bridgePerformFallback(type: String, target: String = "", direction: String = ""): Boolean =
-        performActionWithFallback(type, target, direction)
-    fun bridgeOpenNotificationsAndClick(target: String, longClick: Boolean): Boolean =
-        openNotificationsAndClick(target, longClick)
-    fun bridgeOpenQuickSettingsAndClick(target: String, longClick: Boolean): Boolean =
-        openQuickSettingsAndClick(target, longClick)
-
     companion object {
         const val ACTION_CURRENT_APP = "com.ari900630.agentsforlife.CURRENT_APP_CHANGED"
         const val EXTRA_PACKAGE = "package_name"
@@ -622,5 +610,15 @@ class AgentAccessibilityService : AccessibilityService() {
         fun instanceReceiveVoiceStatus(message: String) { instance?.statusText?.post { instance?.statusText?.text = message } }
         fun installFromPlayStore(packageName: String, appLabel: String = packageName): Boolean =
             instance?.installFromPlayStore(packageName, appLabel) == true
+        fun bridgeTypeText(text: String): Boolean = instance?.performActionWithFallback("TYPE_TEXT", text) == true
+        fun bridgeSendText(text: String): Boolean = instance?.performActionWithFallback("SEND_TEXT", text) == true
+        fun bridgeClickText(target: String): Boolean = instance?.performActionWithFallback("CLICK_TEXT", target) == true
+        fun bridgeLongClickText(target: String): Boolean = instance?.performActionWithFallback("LONG_CLICK_TEXT", target) == true
+        fun bridgePerformFallback(type: String, target: String = "", direction: String = ""): Boolean =
+            instance?.performActionWithFallback(type, target, direction) == true
+        fun bridgeOpenNotificationsAndClick(target: String, longClick: Boolean): Boolean =
+            instance?.openNotificationsAndClick(target, longClick) == true
+        fun bridgeOpenQuickSettingsAndClick(target: String, longClick: Boolean): Boolean =
+            instance?.openQuickSettingsAndClick(target, longClick) == true
     }
 }
