@@ -111,7 +111,7 @@ object AgentActionBridge {
             "SCREENSHOT" -> AgentAccessibilityService.performGlobal(9)
             "SHARE_TEXT" -> runCatching {
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
+                    setType("text/plain")
                     putExtra(Intent.EXTRA_TEXT, action.optString("text"))
                 }
                 context.startActivity(Intent.createChooser(shareIntent, "שיתוף"))
