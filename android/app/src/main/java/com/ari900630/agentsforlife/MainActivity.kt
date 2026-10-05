@@ -34,7 +34,7 @@ class MainActivity : Activity() {
     private lateinit var currentAppIcon: ImageView
     private lateinit var currentAppName: TextView
 
-    private val currentAppReceiver = object : BroadcastReceiver {
+    private val currentAppReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: android.content.Context?, intent: Intent?) {
             val pkg = intent?.getStringExtra(AgentAccessibilityService.EXTRA_PACKAGE).orEmpty()
             if (pkg.isNotBlank()) updateCurrentApp(pkg)
@@ -384,7 +384,7 @@ class MainActivity : Activity() {
 
     private fun speak(value: String) {
         if (value.isBlank()) return
-        val clean = value.replace(Regex("\[\[DEVICE_ACTION:.*?\]\]"), "").trim()
+        val clean = value.replace(Regex("""\[\[DEVICE_ACTION:.*?\]\]"""), "").trim()
         if (clean.isBlank()) return
         if (tts == null) {
             tts = TextToSpeech(this) { result ->
