@@ -65,6 +65,10 @@ object AgentActionBridge {
             "LIKE" -> "סימון לייק"
             "FOLLOW" -> "לחיצה על עוקב/עקוב"
             "OPEN_NOTIFICATIONS" -> "פתיחת ההתראות"
+            "CLICK_NOTIFICATION" -> "לחיצה על התראה: " + action.optString("target")
+            "LONG_CLICK_NOTIFICATION" -> "לחיצה ארוכה על התראה: " + action.optString("target")
+            "CLICK_QUICK_SETTING" -> "לחיצה על כפתור בהגדרות המהירות: " + action.optString("target")
+            "LONG_CLICK_QUICK_SETTING" -> "לחיצה ארוכה על כפתור בהגדרות המהירות: " + action.optString("target")
             "APPROVE" -> "אישור הפעולה"
             else -> "פעולה במכשיר: $type"
         }
@@ -92,7 +96,9 @@ object AgentActionBridge {
     private fun isDirectUiAction(type: String): Boolean = type in setOf(
         "TYPE_TEXT", "SEND_TEXT", "CLICK_TEXT", "LONG_CLICK_TEXT", "OPEN_CHAT_MENU",
         "PIN", "PRESS_SEND", "LIKE", "FOLLOW", "OPEN_NOTIFICATIONS", "APPROVE",
-        "UNINSTALL_APP", "UNINSTALL_CURRENT_APP"
+        "UNINSTALL_APP", "UNINSTALL_CURRENT_APP",
+        "CLICK_NOTIFICATION", "LONG_CLICK_NOTIFICATION",
+        "CLICK_QUICK_SETTING", "LONG_CLICK_QUICK_SETTING"
     )
 
     private fun directDescription(type: String, action: JSONObject): String = when (type) {
@@ -123,7 +129,11 @@ object AgentActionBridge {
             }.getOrDefault(false)
             "PLAY_STORE_INSTALL" -> AgentAccessibilityService.installFromPlayStore(action.optString("package"), action.optString("app", action.optString("package")))
             "UNINSTALL_APP" -> AgentAccessibilityService.instanceUninstallApp(action.optString("package"), action.optString("app"))
-            "UNINSTALL_CURRENT_APP" -> AgentAccessibilityService.instanceUninstallApp(null, null)
+            "UNINSTALL_CURRENT_APP" -> AgentAccessibilityService.instanceUninstallApp(null, null),
+            "CLICK_NOTIFICATION" -> AgentAccessibilityService.instanceOpenNotificationsAndClick(action.optString("target"), false)
+            "LONG_CLICK_NOTIFICATION" -> AgentAccessibilityService.instanceOpenNotificationsAndClick(action.optString("target"), true)
+            "CLICK_QUICK_SETTING" -> AgentAccessibilityService.instanceOpenQuickSettingsAndClick(action.optString("target"), false)
+            "LONG_CLICK_QUICK_SETTING" -> AgentAccessibilityService.instanceOpenQuickSettingsAndClick(action.optString("target"), true)
             "HOME" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.HOME)
             "BACK" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.BACK)
             "RECENTS" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.RECENTS)
