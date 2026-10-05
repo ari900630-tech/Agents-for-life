@@ -35,6 +35,7 @@ object AgentActionBridge {
             "OPEN_URL" -> "פתיחת קישור: " + action.optString("url")
             "LAUNCH_APP" -> "פתיחת אפליקציה: " + action.optString("package")
             "PLAY_STORE_INSTALL" -> "פתיחת חנות Play והתקנת " + action.optString("app", action.optString("package"))
+            "UNINSTALL_APP", "UNINSTALL_CURRENT_APP" -> "הסרת האפליקציה " + action.optString("app", "הנוכחית")
             "HOME" -> "מעבר למסך הבית"
             "BACK" -> "חזרה"
             "RECENTS" -> "פתיחת האפליקציות האחרונות"
@@ -99,6 +100,8 @@ object AgentActionBridge {
                 true
             }.getOrDefault(false)
             "PLAY_STORE_INSTALL" -> AgentAccessibilityService.installFromPlayStore(action.optString("package"), action.optString("app", action.optString("package")))
+            "UNINSTALL_APP" -> AgentAccessibilityService.instanceUninstallApp(action.optString("package"), action.optString("app"))
+            "UNINSTALL_CURRENT_APP" -> AgentAccessibilityService.instanceUninstallApp(null, null)
             "HOME" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.HOME)
             "BACK" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.BACK)
             "RECENTS" -> AgentAccessibilityService.performGlobal(AccessibilityServiceAction.RECENTS)
